@@ -9,7 +9,10 @@ import {
   type NormalizationDemoResponse,
   uploadInsuranceDocument,
   verifyInsurance,
-  fetchNormalizationDemo
+  fetchNormalizationDemo,
+  fetchTreatmentPlanAnalysis,
+  type PlannedTreatment,
+  type TreatmentPlanAnalysis
 } from './services/api'
 
 const fieldLabels: Record<string, string> = {
@@ -34,6 +37,12 @@ function App() {
   const [verificationResult, setVerificationResult] = useState<InsuranceVerification | null>(null)
   const [error, setError] = useState<string | null>(null)
   const { status: healthStatus } = useHealth()
+
+  const [plannedTreatments, setPlannedTreatments] = useState<PlannedTreatment[]>([])
+  const [newTreatmentName, setNewTreatmentName] = useState<string>('')
+  const [newTreatmentQty, setNewTreatmentQty] = useState<number>(1)
+  const [planAnalysis, setPlanAnalysis] = useState<TreatmentPlanAnalysis | null>(null)
+  const [planAnalysisLoading, setPlanAnalysisLoading] = useState(false)
 
   const [demoProviderA, setDemoProviderA] = useState<string>('provider_c_v1')
   const [demoResponseA, setDemoResponseA] = useState<NormalizationDemoResponse | null>(null)
@@ -126,6 +135,37 @@ function App() {
     }
   }
 
+  function handleAddTreatment() {
+    if (!newTreatmentName) return
+    setPlannedTreatments(current => {
+      const existing = current.find(t => t.treatment === newTreatmentName)
+      if (existing) {
+        return current.map(t => t.treatment === newTreatmentName ? { ...t, quantity: t.quantity + newTreatmentQty } : t)
+      }
+      return [...current, { treatment: newTreatmentName, quantity: newTreatmentQty }]
+    })
+    setNewTreatmentName('')
+    setNewTreatmentQty(1)
+  }
+
+  function handleRemoveTreatment(name: string) {
+    setPlannedTreatments(current => current.filter(t => t.treatment !== name))
+  }
+
+  async function handleAnalyzePlan() {
+    if (!verificationResult || plannedTreatments.length === 0) return
+    setPlanAnalysisLoading(true)
+    setError(null)
+    try {
+      const analysis = await fetchTreatmentPlanAnalysis(verificationResult.id, { treatments: plannedTreatments })
+      setPlanAnalysis(analysis)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Analysis failed.')
+    } finally {
+      setPlanAnalysisLoading(false)
+    }
+  }
+
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     if (file) void processFile(file)
@@ -147,6 +187,8 @@ function App() {
     setFieldValues({})
     setVerificationResult(null)
     setError(null)
+    setPlannedTreatments([])
+    setPlanAnalysis(null)
     setStage('upload')
   }
 
@@ -458,6 +500,184 @@ function App() {
                             <p className="text-sm text-slate-500">No limitations reported.</p>
                           )}
                         </div>
+                      </section>
+                      
+                      {/* 7. TREATMENT PLAN ESTIMATOR */}
+                      <section className="border-t border-slate-200 pt-12">
+                        <h3 className="text-2xl font-semibold text-slate-900 mb-6 tracking-tight">Treatment Plan</h3>
+                        
+                        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden mb-6">
+                          <div className="p-5 border-b border-slate-100 bg-slate-50 flex flex-col sm:flex-row gap-4 items-end">
+                            <label className="flex-1">
+                              <span className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Treatment</span>
+                              <select 
+                                value={newTreatmentName} 
+                                onChange={e => setNewTreatmentName(e.target.value)}
+                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                              >
+                                <option value="">Select a treatment...</option>
+                                <option value="Cleaning">Cleaning</option>
+                                <option value="X-ray">X-ray</option>
+                                <option value="Filling">Filling</option>
+                                <option value="Crown">Crown</option>
+                                <option value="Root Canal">Root Canal</option>
+                                <option value="Extraction">Extraction</option>
+                                <option value="Unknown Treatment">Unknown Treatment (Test Missing Price)</option>
+                              </select>
+                            </label>
+                            <label className="w-24">
+                              <span className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Quantity</span>
+                              <input 
+                                type="number" 
+                                min="1"
+                                value={newTreatmentQty} 
+                                onChange={e => setNewTreatmentQty(parseInt(e.target.value) || 1)}
+                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                              />
+                            </label>
+                            <button 
+                              onClick={handleAddTreatment}
+                              disabled={!newTreatmentName}
+                              className="rounded-lg bg-primary-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 disabled:opacity-50 transition h-[38px]"
+                            >
+                              + Add Treatment
+                            </button>
+                          </div>
+                          
+                          {plannedTreatments.length > 0 ? (
+                            <table className="w-full text-left text-sm text-slate-600">
+                              <thead className="border-b border-slate-100 bg-white text-xs uppercase text-slate-500">
+                                <tr>
+                                  <th className="px-5 py-3 font-semibold">Treatment</th>
+                                  <th className="px-5 py-3 font-semibold">Quantity</th>
+                                  <th className="px-5 py-3 font-semibold text-right">Action</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 bg-white">
+                                {plannedTreatments.map((t) => (
+                                  <tr key={t.treatment}>
+                                    <td className="px-5 py-3 font-medium text-slate-900">{t.treatment}</td>
+                                    <td className="px-5 py-3">{t.quantity}</td>
+                                    <td className="px-5 py-3 text-right">
+                                      <button onClick={() => handleRemoveTreatment(t.treatment)} className="text-red-500 hover:text-red-700 font-semibold text-xs uppercase tracking-wider">Remove</button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          ) : (
+                            <div className="p-8 text-center text-sm text-slate-500">
+                              No treatments added to the plan yet.
+                            </div>
+                          )}
+                        </div>
+
+                        {plannedTreatments.length > 0 && (
+                          <div className="flex justify-end">
+                            <button 
+                              onClick={handleAnalyzePlan}
+                              disabled={planAnalysisLoading}
+                              className="rounded-lg bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50 transition"
+                            >
+                              {planAnalysisLoading ? 'Analyzing...' : 'Check Insurance Coverage'}
+                            </button>
+                          </div>
+                        )}
+
+                        {planAnalysis && (
+                          <div className="mt-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            
+                            {/* COVERAGE ANALYSIS TABLE */}
+                            <div>
+                              <h4 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-900">Coverage Analysis</h4>
+                              <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+                                <table className="w-full text-left text-sm text-slate-600">
+                                  <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
+                                    <tr>
+                                      <th className="px-5 py-4 font-semibold">Treatment</th>
+                                      <th className="px-5 py-4 font-semibold">Requested</th>
+                                      <th className="px-5 py-4 font-semibold">Cost</th>
+                                      <th className="px-5 py-4 font-semibold">Coverage</th>
+                                      <th className="px-5 py-4 font-semibold">Status</th>
+                                      <th className="px-5 py-4 font-semibold">Notes</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100 bg-white">
+                                    {planAnalysis.treatments.map((t) => (
+                                      <tr key={t.treatment}>
+                                        <td className="px-5 py-4 font-medium text-slate-900">{t.treatment}</td>
+                                        <td className="px-5 py-4">{t.quantity}</td>
+                                        <td className="px-5 py-4">{t.requested_cost !== null ? `$${t.requested_cost}` : '—'}</td>
+                                        <td className="px-5 py-4">
+                                          {t.coverage_percentage !== null ? `${t.coverage_percentage}%` : '—'}
+                                        </td>
+                                        <td className="px-5 py-4">
+                                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                            t.status === 'ELIGIBLE' ? 'bg-emerald-100 text-emerald-800' :
+                                            t.status === 'NOT_COVERED' ? 'bg-red-100 text-red-800' :
+                                            'bg-amber-100 text-amber-800'
+                                          }`}>
+                                            {t.status.replace('_', ' ')}
+                                          </span>
+                                        </td>
+                                        <td className="px-5 py-4 text-xs text-slate-500">
+                                          {[t.limitations, t.missing_information_message].filter(Boolean).join(' | ') || '—'}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+
+                            {/* FINANCIAL SUMMARY */}
+                            <div className="rounded-2xl border border-slate-200 bg-slate-900 overflow-hidden shadow-xl">
+                              <div className="p-6 sm:p-8">
+                                <h4 className="mb-6 text-sm font-semibold uppercase tracking-wider text-slate-400">Financial Summary</h4>
+                                
+                                <div className="space-y-6">
+                                  <div className="flex justify-between items-baseline border-b border-slate-700 pb-4">
+                                    <span className="text-slate-300">Total Treatment Plan</span>
+                                    <span className="text-2xl font-semibold text-white">
+                                      ${planAnalysis.total_cost}
+                                    </span>
+                                  </div>
+                                  
+                                  <div className="flex justify-between items-baseline border-b border-slate-700 pb-4">
+                                    <div className="flex flex-col">
+                                      <span className="text-slate-300">Estimated Insurance Contribution</span>
+                                      {planAnalysis.capped_by_maximum && (
+                                        <span className="text-xs text-amber-400 mt-1">Limited by remaining annual maximum</span>
+                                      )}
+                                    </div>
+                                    <span className="text-2xl font-semibold text-emerald-400">
+                                      {planAnalysis.estimated_insurance !== null ? `$${planAnalysis.estimated_insurance}` : '—'}
+                                    </span>
+                                  </div>
+                                  
+                                  <div className="flex justify-between items-baseline pt-2">
+                                    <div className="flex flex-col">
+                                      <span className="text-slate-100 font-medium">Estimated Patient Responsibility</span>
+                                      {planAnalysis.exact_estimate_unavailable && (
+                                        <span className="text-xs text-red-400 mt-1 font-semibold">
+                                          {planAnalysis.unavailable_reason || 'Exact patient responsibility cannot be calculated from the available benefit information.'}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="text-3xl font-bold text-white">
+                                      {planAnalysis.patient_responsibility !== null ? `$${planAnalysis.patient_responsibility}` : 'Unable to estimate exactly'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="bg-slate-800 p-4 text-xs text-slate-400 flex justify-between items-center">
+                                <span>Annual Maximum Remaining: {planAnalysis.annual_maximum_remaining !== null ? `$${planAnalysis.annual_maximum_remaining}` : 'Unknown'}</span>
+                                <span className="font-semibold text-amber-500">Financial figures are estimates based on available benefit information.</span>
+                              </div>
+                            </div>
+
+                          </div>
+                        )}
                       </section>
                       
                       <div className="mt-8 pt-6 border-t border-slate-200 text-center">

@@ -142,3 +142,33 @@ class TreatmentAnalysis(BaseModel):
     estimated_insurance: Optional[Decimal] = None
     patient_responsibility: Optional[Decimal] = None
     missing_information_message: Optional[str] = None
+
+class PlannedTreatment(BaseModel):
+    treatment: str
+    quantity: int = 1
+    planned_date: Optional[date] = None
+    notes: Optional[str] = None
+
+class TreatmentPlanRequest(BaseModel):
+    treatments: List[PlannedTreatment]
+
+class PlannedTreatmentAnalysis(BaseModel):
+    treatment: str
+    quantity: int
+    requested_cost: Optional[Decimal] = None
+    coverage_percentage: Optional[Decimal] = None
+    estimated_insurance: Optional[Decimal] = None
+    patient_responsibility: Optional[Decimal] = None
+    status: str
+    limitations: Optional[str] = None
+    missing_information_message: Optional[str] = None
+
+class TreatmentPlanAnalysis(BaseModel):
+    total_cost: Optional[Decimal] = None
+    estimated_insurance: Optional[Decimal] = None
+    patient_responsibility: Optional[Decimal] = None
+    annual_maximum_remaining: Optional[Decimal] = None
+    capped_by_maximum: bool = False
+    exact_estimate_unavailable: bool = False
+    unavailable_reason: Optional[str] = None
+    treatments: List[PlannedTreatmentAnalysis]

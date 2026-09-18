@@ -54,10 +54,19 @@ def get_verification(verification_id: UUID, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Verification not found")
     return db_verification
 
-from app.schemas.core import TreatmentAnalysis
-from app.services.treatment_analysis import analyze_treatment
+from app.schemas.core import TreatmentAnalysis, TreatmentPlanRequest, TreatmentPlanAnalysis
+from app.services.treatment_analysis import analyze_treatment, analyze_treatment_plan
 from app.models import TreatmentBenefit as TreatmentBenefitModel
 from urllib.parse import unquote
+
+@verifications_router.post("/{verification_id}/treatment-plan/analysis", response_model=TreatmentPlanAnalysis)
+def analyze_treatment_plan_endpoint(verification_id: UUID, plan_in: TreatmentPlanRequest, db: Session = Depends(get_db)):
+    db_verification = db.get(VerificationModel, verification_id)
+    if not db_verification:
+        raise HTTPException(status_code=404, detail="Verification not found")
+        
+    analysis = analyze_treatment_plan(plan_in, db_verification)
+    return analysis
 
 @verifications_router.get("/{verification_id}/treatments/{treatment_name}/analysis", response_model=TreatmentAnalysis)
 def get_treatment_analysis(verification_id: UUID, treatment_name: str, db: Session = Depends(get_db)):

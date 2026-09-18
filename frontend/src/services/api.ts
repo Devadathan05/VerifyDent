@@ -66,6 +66,13 @@ export interface VerificationRequestPayload {
   }
 }
 
+export interface PlannedTreatment {
+  treatment: string
+  quantity: number
+  planned_date?: string | null
+  notes?: string | null
+}
+
 export interface InsuranceVerification {
   id: string
   status: string
@@ -223,4 +230,58 @@ export async function fetchTreatmentAnalysis(
   }
 
   return (await res.json()) as TreatmentAnalysis
+}
+
+export interface PlannedTreatment {
+  treatment: string
+  quantity: number
+  planned_date?: string | null
+  notes?: string | null
+}
+
+export interface TreatmentPlanRequest {
+  treatments: PlannedTreatment[]
+}
+
+export interface PlannedTreatmentAnalysis {
+  treatment: string
+  quantity: number
+  requested_cost: number | null
+  coverage_percentage: number | null
+  estimated_insurance: number | null
+  patient_responsibility: number | null
+  status: string
+  limitations: string | null
+  missing_information_message: string | null
+}
+
+export interface TreatmentPlanAnalysis {
+  total_cost: number | null
+  estimated_insurance: number | null
+  patient_responsibility: number | null
+  annual_maximum_remaining: number | null
+  capped_by_maximum: boolean
+  exact_estimate_unavailable: boolean
+  unavailable_reason: string | null
+  treatments: PlannedTreatmentAnalysis[]
+}
+
+export async function fetchTreatmentPlanAnalysis(
+  verificationId: string,
+  request: TreatmentPlanRequest,
+): Promise<TreatmentPlanAnalysis> {
+  const res = await fetch(`${BACKEND_URL}/api/verifications/${verificationId}/treatment-plan/analysis`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  })
+
+  if (!res.ok) {
+    const errorBody = (await res.json().catch(() => null)) as
+      | { detail?: string }
+      | null
+    throw new Error(errorBody?.detail ?? `Failed to analyze treatment plan (status ${res.status})`)
+  }
+
+  return (await res.json()) as TreatmentPlanAnalysis
 }
