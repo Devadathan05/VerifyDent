@@ -71,6 +71,9 @@ function App() {
      if (healthStatus === 'offline') console.warn('Health status offline')
   }, [error, healthStatus])
 
+  // Insurance input mode: photo OCR or manual form
+  const [insuranceInputMode, setInsuranceInputMode] = useState<'photo' | 'manual'>('photo')
+
   // Treatment Plan State
   const [plannedTreatments, setPlannedTreatments] = useState<PlannedTreatment[]>([])
   const [newTreatmentName, setNewTreatmentName] = useState<string>('')
@@ -238,6 +241,13 @@ function App() {
     setPlannedTreatments([])
     setPlanAnalysis(null)
     setStage('upload')
+    setInsuranceInputMode('photo')
+  }
+
+  function handleManualConfirm() {
+    // Skip OCR — go straight to confirmed with whatever was typed
+    setExtraction(null)
+    setStage('confirmed')
   }
 
   // ---- TREATMENT PLAN FLOW ----
@@ -478,21 +488,81 @@ function App() {
                <h3 className="text-xl font-semibold text-slate-900 mb-6">Insurance Detail</h3>
                
                {stage === 'upload' && (
-                  <div className="max-w-3xl space-y-4">
-                    <p className="text-sm text-slate-600">Status: <span className="font-semibold text-slate-500">Not provided</span></p>
-                    <div
-                      className="cursor-pointer rounded-2xl border-2 border-dashed border-primary-200 bg-white px-6 py-16 text-center shadow-sm transition hover:border-primary-500 hover:bg-primary-50/40"
-                      onClick={() => fileInputRef.current?.click()}
-                      onDragOver={(event) => event.preventDefault()}
-                      onDrop={handleDrop}
-                    >
-                      <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-50 text-2xl text-primary-700">↑</div>
-                      <h3 className="text-lg font-semibold text-slate-900">Upload Insurance Card</h3>
-                      <button type="button" className="mt-6 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700">
-                        Choose file
+                  <div className="max-w-3xl space-y-6">
+                    {/* Mode selector tabs */}
+                    <div className="flex gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1 w-fit">
+                      <button
+                        onClick={() => setInsuranceInputMode('photo')}
+                        className={`rounded-lg px-5 py-2 text-sm font-semibold transition ${
+                          insuranceInputMode === 'photo'
+                            ? 'bg-white text-primary-700 shadow-sm border border-slate-200'
+                            : 'text-slate-500 hover:text-slate-800'
+                        }`}
+                      >
+                        📷 Upload Photo
                       </button>
-                      <input ref={fileInputRef} type="file" accept=".pdf,.png,.jpg,.jpeg" className="hidden" onChange={handleFileChange} />
+                      <button
+                        onClick={() => setInsuranceInputMode('manual')}
+                        className={`rounded-lg px-5 py-2 text-sm font-semibold transition ${
+                          insuranceInputMode === 'manual'
+                            ? 'bg-white text-primary-700 shadow-sm border border-slate-200'
+                            : 'text-slate-500 hover:text-slate-800'
+                        }`}
+                      >
+                        ✏️ Manual Entry
+                      </button>
                     </div>
+
+                    {/* PHOTO UPLOAD */}
+                    {insuranceInputMode === 'photo' && (
+                      <div
+                        className="cursor-pointer rounded-2xl border-2 border-dashed border-primary-200 bg-white px-6 py-16 text-center shadow-sm transition hover:border-primary-500 hover:bg-primary-50/40"
+                        onClick={() => fileInputRef.current?.click()}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={handleDrop}
+                      >
+                        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-50 text-2xl text-primary-700">↑</div>
+                        <h3 className="text-lg font-semibold text-slate-900">Upload Insurance Card</h3>
+                        <p className="mt-2 text-sm text-slate-500">Tesseract OCR will extract the fields automatically</p>
+                        <button type="button" className="mt-6 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700">
+                          Choose file
+                        </button>
+                        <input ref={fileInputRef} type="file" accept=".pdf,.png,.jpg,.jpeg" className="hidden" onChange={handleFileChange} />
+                      </div>
+                    )}
+
+                    {/* MANUAL ENTRY */}
+                    {insuranceInputMode === 'manual' && (
+                      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                        <h4 className="text-sm font-semibold text-slate-700 mb-5">Enter insurance details manually</h4>
+                        <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
+                          {Object.keys(fieldLabels).map((key) => (
+                            <label key={key} className="block">
+                              <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                {fieldLabels[key]}
+                              </span>
+                              <input
+                                type={key === 'date_of_birth' ? 'date' : 'text'}
+                                value={fieldValues[key] ?? ''}
+                                onChange={(e) => updateField(key, e.target.value)}
+                                placeholder={`Enter ${fieldLabels[key].toLowerCase()}...`}
+                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+                              />
+                            </label>
+                          ))}
+                        </div>
+                        <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-5">
+                          <button
+                            type="button"
+                            onClick={handleManualConfirm}
+                            disabled={!fieldValues.payer_name && !fieldValues.member_id}
+                            className="rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 disabled:opacity-50 transition"
+                          >
+                            Confirm Details
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
                 
@@ -507,6 +577,29 @@ function App() {
                   <div className="max-w-3xl rounded-2xl border border-slate-200 bg-white px-6 py-20 text-center shadow-sm">
                     <div className="mx-auto mb-5 h-10 w-10 animate-spin rounded-full border-4 border-primary-100 border-t-primary-600" />
                     <h3 className="text-lg font-semibold text-slate-900">Verifying insurance...</h3>
+                  </div>
+                )}
+
+                {/* Manual confirmed: no extraction, show fields directly */}
+                {stage === 'confirmed' && !extraction && (
+                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-5 mb-5">
+                      <h3 className="text-lg font-semibold text-slate-900">Insurance Details</h3>
+                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">Confirmed</span>
+                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">Manual Entry</span>
+                    </div>
+                    <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
+                      {Object.entries(fieldValues).filter(([, v]) => v).map(([key, value]) => (
+                        <div key={key}>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">{fieldLabels[key] ?? key.replaceAll('_', ' ')}</p>
+                          <p className="text-sm font-medium text-slate-900">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-5">
+                      <button type="button" onClick={resetUpload} className="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">Edit details</button>
+                      <button type="button" onClick={handleVerify} className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">Verify Insurance</button>
+                    </div>
                   </div>
                 )}
 
