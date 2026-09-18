@@ -1,4 +1,4 @@
-from .core import Patient, InsurancePolicy, InsuranceVerification, PayerResponse, InsuranceBenefits, BenefitLimitation, VerificationEvent
+from .core import Patient, InsurancePolicy, InsuranceVerification, PayerResponse, InsuranceBenefits, BenefitLimitation, VerificationEvent, TreatmentBenefit
 
 __all__ = [
     "Patient",
@@ -8,4 +8,5 @@ __all__ = [
     "InsuranceBenefits",
     "BenefitLimitation",
     "VerificationEvent",
+    "TreatmentBenefit",
 ]

@@ -19,6 +19,7 @@ class VerificationResult(BaseModel):
     carrier_id: str
     is_active: bool
     message: str
+    raw_response: str = "{}"
 
 
 class VerificationProvider(ABC):

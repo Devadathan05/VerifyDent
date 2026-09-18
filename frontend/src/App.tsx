@@ -5,7 +5,9 @@ import { useHealth } from './hooks/useHealth'
 import { Layout } from './components/Layout'
 import {
   type InsuranceExtractionResponse,
+  type InsuranceVerification,
   uploadInsuranceDocument,
+  verifyInsurance
 } from './services/api'
 
 const fieldLabels: Record<string, string> = {
@@ -20,19 +22,22 @@ const fieldLabels: Record<string, string> = {
   relationship_to_subscriber: 'Relationship to subscriber',
 }
 
-type AppStage = 'upload' | 'processing' | 'review' | 'confirmed'
+type AppStage = 'upload' | 'processing' | 'review' | 'verifying' | 'confirmed'
 
 function App() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [stage, setStage] = useState<AppStage>('upload')
   const [extraction, setExtraction] = useState<InsuranceExtractionResponse | null>(null)
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({})
+  const [verificationResult, setVerificationResult] = useState<InsuranceVerification | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [selectedTreatment, setSelectedTreatment] = useState<string>('')
   const { status: healthStatus } = useHealth()
 
   async function processFile(file: File) {
     setError(null)
     setStage('processing')
+    setVerificationResult(null)
 
     try {
       const result = await uploadInsuranceDocument(file)
@@ -46,6 +51,33 @@ function App() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'The document could not be processed.')
       setStage('upload')
+    }
+  }
+
+  async function handleConfirm() {
+    setStage('verifying')
+    setError(null)
+    try {
+      const result = await verifyInsurance({
+        patient: {
+          first_name: fieldValues.first_name || '',
+          last_name: fieldValues.last_name || '',
+          date_of_birth: fieldValues.date_of_birth || '1970-01-01',
+        },
+        policy: {
+          payer_name: fieldValues.payer_name || '',
+          member_id: fieldValues.member_id || '',
+          group_number: fieldValues.group_number || undefined,
+          policy_number: fieldValues.policy_number || undefined,
+          subscriber_name: fieldValues.subscriber_name || undefined,
+          relationship_to_subscriber: fieldValues.relationship_to_subscriber || undefined,
+        },
+      })
+      setVerificationResult(result)
+      setStage('confirmed')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Verification failed.')
+      setStage('review')
     }
   }
 
@@ -68,7 +100,9 @@ function App() {
   function resetUpload() {
     setExtraction(null)
     setFieldValues({})
+    setVerificationResult(null)
     setError(null)
+    setSelectedTreatment('')
     setStage('upload')
   }
 
@@ -140,6 +174,18 @@ function App() {
           </div>
         )}
 
+        {stage === 'verifying' && (
+          <div className="max-w-3xl rounded-2xl border border-slate-200 bg-white px-6 py-20 text-center shadow-sm">
+            <div className="mx-auto mb-5 h-10 w-10 animate-spin rounded-full border-4 border-primary-100 border-t-primary-600" />
+            <h3 className="text-lg font-semibold text-slate-900">Verifying insurance...</h3>
+            <div className="mt-4 flex flex-col items-center gap-2 text-sm text-slate-500">
+              <p>Identifying payer...</p>
+              <p>Connecting to verification provider...</p>
+              <p>Processing eligibility response...</p>
+            </div>
+          </div>
+        )}
+
         {(stage === 'review' || stage === 'confirmed') && extraction && (
           <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -169,7 +215,162 @@ function App() {
                   </label>
                 ))}
               </div>
-              {stage === 'review' && <div className="mt-7 flex flex-col-reverse justify-end gap-3 border-t border-slate-100 pt-5 sm:flex-row"><button type="button" onClick={resetUpload} className="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">Start over</button><button type="button" onClick={() => setStage('confirmed')} className="rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700">Confirm details</button></div>}
+              {stage === 'review' && <div className="mt-7 flex flex-col-reverse justify-end gap-3 border-t border-slate-100 pt-5 sm:flex-row"><button type="button" onClick={resetUpload} className="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">Start over</button><button type="button" onClick={handleConfirm} className="rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700">Confirm details</button></div>}
+              {stage === 'confirmed' && verificationResult && (
+                <div className="mt-8 border-t border-slate-100 pt-6">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Insurance Status</p>
+                  <div className="mt-4 flex items-center gap-3">
+                    {verificationResult.status === 'VERIFIED' ? (
+                      <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">✓ ACTIVE</span>
+                    ) : verificationResult.status === 'NEEDS_REVIEW' ? (
+                      <span className="flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-700">! NEEDS REVIEW</span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-sm font-semibold text-red-700">✗ FAILED</span>
+                    )}
+                    <span className="text-sm font-medium text-slate-700">{fieldValues.payer_name}</span>
+                  </div>
+                  
+                  {verificationResult.benefits && (
+                    <div className="mt-6 grid gap-6 sm:grid-cols-2">
+                      <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                        <p className="text-xs font-medium text-slate-500">Deductible</p>
+                        <p className="mt-1 text-2xl font-semibold text-slate-900">${verificationResult.benefits.deductible}</p>
+                        <p className="mt-1 text-sm text-slate-500">${verificationResult.benefits.deductible_remaining} remaining</p>
+                      </div>
+                      <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                        <p className="text-xs font-medium text-slate-500">Annual Maximum</p>
+                        <p className="mt-1 text-2xl font-semibold text-slate-900">${verificationResult.benefits.annual_maximum}</p>
+                        <p className="mt-1 text-sm text-slate-500">${verificationResult.benefits.annual_maximum_remaining} remaining</p>
+                      </div>
+                      <div className="sm:col-span-2 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                        <p className="mb-3 text-xs font-medium text-slate-500">Coverage</p>
+                        <div className="flex justify-between border-b border-slate-200/60 pb-2 text-sm">
+                          <span className="text-slate-600">Preventive</span><span className="font-semibold text-slate-900">{verificationResult.benefits.preventive_coverage}%</span>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-200/60 py-2 text-sm">
+                          <span className="text-slate-600">Basic</span><span className="font-semibold text-slate-900">{verificationResult.benefits.basic_coverage}%</span>
+                        </div>
+                        <div className="flex justify-between pt-2 text-sm">
+                          <span className="text-slate-600">Major</span><span className="font-semibold text-slate-900">{verificationResult.benefits.major_coverage}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Treatment Benefits Section */}
+                  <div className="mt-8 border-t border-slate-100 pt-6">
+                    <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Treatment Benefits</p>
+                    
+                    {verificationResult.status === 'NEEDS_REVIEW' || verificationResult.status === 'UNKNOWN' ? (
+                      <div className="rounded-xl border border-amber-100 bg-amber-50 p-6 text-center">
+                        <p className="font-semibold text-amber-800">Treatment benefits unavailable</p>
+                        <p className="mt-1 text-sm text-amber-700">Payer must be confirmed before verification.</p>
+                      </div>
+                    ) : verificationResult.treatment_benefits && verificationResult.treatment_benefits.length > 0 ? (
+                      <div className="space-y-6">
+                        {/* Table View */}
+                        <div className="overflow-x-auto rounded-xl border border-slate-200">
+                          <table className="w-full text-left text-sm text-slate-600">
+                            <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
+                              <tr>
+                                <th className="px-4 py-3 font-medium">Treatment</th>
+                                <th className="px-4 py-3 font-medium">Covered</th>
+                                <th className="px-4 py-3 font-medium">Coverage</th>
+                                <th className="px-4 py-3 font-medium">Waiting Period</th>
+                                <th className="px-4 py-3 font-medium">Frequency</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 bg-white">
+                              {verificationResult.treatment_benefits.map((tb) => (
+                                <tr key={tb.treatment}>
+                                  <td className="px-4 py-3 font-medium text-slate-900">{tb.treatment}</td>
+                                  <td className="px-4 py-3">
+                                    {tb.covered ? (
+                                      <span className="text-emerald-600">✓ Covered</span>
+                                    ) : (
+                                      <span className="text-red-600">✗ Not Covered</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3">{tb.coverage_percentage !== null ? `${tb.coverage_percentage}%` : '-'}</td>
+                                  <td className="px-4 py-3">{tb.waiting_period || 'None'}</td>
+                                  <td className="px-4 py-3 text-xs">{tb.frequency || '-'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Dropdown Selector */}
+                        <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5">
+                          <label className="block text-sm font-medium text-slate-700">Check a treatment</label>
+                          <select 
+                            className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 sm:w-64"
+                            value={selectedTreatment}
+                            onChange={(e) => setSelectedTreatment(e.target.value)}
+                          >
+                            <option value="" disabled>Select a treatment...</option>
+                            {verificationResult.treatment_benefits.map((tb) => (
+                              <option key={tb.treatment} value={tb.treatment}>{tb.treatment}</option>
+                            ))}
+                          </select>
+
+                          {selectedTreatment && verificationResult.treatment_benefits.find(t => t.treatment === selectedTreatment) && (
+                            <div className="mt-4 rounded-lg bg-white p-4 shadow-sm border border-slate-200">
+                              {(() => {
+                                const tb = verificationResult.treatment_benefits.find(t => t.treatment === selectedTreatment)!
+                                return (
+                                  <div className="space-y-3">
+                                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                                      <h4 className="font-semibold text-slate-900">{tb.treatment}</h4>
+                                      {tb.covered ? (
+                                        <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">✓ Covered</span>
+                                      ) : (
+                                        <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700">✗ Not Covered</span>
+                                      )}
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                      <div>
+                                        <p className="text-slate-500">Estimated plan coverage</p>
+                                        <p className="font-medium text-slate-900">{tb.coverage_percentage !== null ? `${tb.coverage_percentage}%` : 'N/A'}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-slate-500">Waiting period</p>
+                                        <p className="font-medium text-slate-900">{tb.waiting_period || 'None'}</p>
+                                      </div>
+                                      <div className="col-span-2">
+                                        <p className="text-slate-500">Frequency</p>
+                                        <p className="font-medium text-slate-900">{tb.frequency || 'N/A'}</p>
+                                      </div>
+                                      {verificationResult.benefits?.annual_maximum_remaining !== null && (
+                                        <div className="col-span-2 border-t border-slate-100 pt-2">
+                                          <p className="text-slate-500">Annual maximum remaining</p>
+                                          <p className="font-medium text-slate-900">${verificationResult.benefits?.annual_maximum_remaining}</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )
+                              })()}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {verificationResult.error_message && (
+                     <div className="mt-4 rounded-lg bg-amber-50 p-4 text-sm text-amber-800 border border-amber-200">
+                       {verificationResult.error_message}
+                     </div>
+                  )}
+                  
+                  <p className="mt-6 text-center text-xs text-slate-400">Demo verification — Mock Provider</p>
+                  
+                  <div className="mt-6 text-center">
+                     <button type="button" onClick={resetUpload} className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 transition">Start a new verification</button>
+                  </div>
+                </div>
+              )}
             </section>
             <aside className="h-fit rounded-2xl border border-slate-200 bg-slate-50 p-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Extraction summary</p>

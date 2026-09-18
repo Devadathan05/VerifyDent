@@ -49,3 +49,61 @@ export async function uploadInsuranceDocument(
 
   return (await res.json()) as InsuranceExtractionResponse
 }
+
+export interface VerificationRequestPayload {
+  patient: {
+    first_name: string
+    last_name: string
+    date_of_birth: string // YYYY-MM-DD
+  }
+  policy: {
+    payer_name: string
+    member_id: string
+    group_number?: string
+    policy_number?: string
+    subscriber_name?: string
+    relationship_to_subscriber?: string
+  }
+}
+
+export interface InsuranceVerification {
+  id: string
+  status: string
+  verified_at: string | null
+  error_message: string | null
+  benefits: {
+    annual_maximum: number | null
+    annual_maximum_remaining: number | null
+    deductible: number | null
+    deductible_remaining: number | null
+    preventive_coverage: number | null
+    basic_coverage: number | null
+    major_coverage: number | null
+  } | null
+  treatment_benefits: Array<{
+    treatment: string
+    covered: boolean
+    coverage_percentage: number | null
+    waiting_period: string | null
+    frequency: string | null
+  }>
+}
+
+export async function verifyInsurance(
+  payload: VerificationRequestPayload,
+): Promise<InsuranceVerification> {
+  const res = await fetch(`${BACKEND_URL}/api/verifications/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+
+  if (!res.ok) {
+    const errorBody = (await res.json().catch(() => null)) as
+      | { detail?: string }
+      | null
+    throw new Error(errorBody?.detail ?? `Verification failed with status ${res.status}`)
+  }
+
+  return (await res.json()) as InsuranceVerification
+}

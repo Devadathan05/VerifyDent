@@ -55,6 +55,10 @@ class InsuranceVerification(InsuranceVerificationBase):
     verified_at: Optional[datetime] = None
     error_message: Optional[str] = None
     created_at: datetime
+    
+    benefits: Optional["InsuranceBenefits"] = None
+    events: List["VerificationEvent"] = []
+    treatment_benefits: List["TreatmentBenefit"] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -113,3 +117,21 @@ class PayerResponse(PayerResponseBase):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class TreatmentBenefitBase(BaseModel):
+    treatment: str
+    covered: bool
+    coverage_percentage: Optional[Decimal] = None
+    waiting_period: Optional[str] = None
+    frequency: Optional[str] = None
+
+class TreatmentBenefit(TreatmentBenefitBase):
+    id: UUID
+    verification_id: UUID
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class VerificationRequestPayload(BaseModel):
+    patient: PatientCreate
+    policy: InsurancePolicyBase

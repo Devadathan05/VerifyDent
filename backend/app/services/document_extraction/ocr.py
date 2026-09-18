@@ -39,27 +39,32 @@ from .base import DocumentExtractor, DocumentExtractionError, ExtractedValue, In
 # ---------------------------------------------------------------------------
 
 _MEMBER_ID_RE = re.compile(
-    r"\b(?:SUBSCRIBER\s+ID|MEMBER\s+ID|CUSTOMER\s+ID|ID)\s*[:\s#-]*\s*([A-Z0-9][A-Z0-9.#/\\-]{2,})\b"
+    r"\b(?:SUBSCRIBER\s+ID|MEMBER\s+ID|CUSTOMER\s+ID|MEDICARE\s+NUMBER(?:/NUMERO\s+DE\s+MEDICARE)?|ID)\s*[:\s#-/]*\s*([A-Z0-9][A-Z0-9.#/\\-]{2,})\b",
+    re.IGNORECASE
 )
 
 _GROUP_RE = re.compile(
-    r"\b(?:GRP(?:\.|\b)?|GROUP(?:\s*(?:NO|NUMBER|#|\.)|#)?)\s*[:\s#-]*\s*([A-Z0-9][A-Z0-9.#/\\-]{2,})\b"
+    r"\b(?:GRP(?:\.|\b)?|GROUP(?:\s*(?:NO|NUMBER|#|\.)|#)?)\s*[:\s#-]*\s*([A-Z0-9][A-Z0-9.#/\\-]{2,})\b",
+    re.IGNORECASE
 )
 
 _POLICY_RE = re.compile(
-    r"\b(?:POLICY(?:\s*(?:NO|NUMBER|#|\.)|#)?|CERT(?:IF\.?|#|NUMBER|IFICATE)?)\s*[:\s#-]*\s*([A-Z0-9][A-Z0-9.#/\\-]{2,})\b"
+    r"\b(?:POLICY(?:\s*(?:NO|NUMBER|#|\.)|#)?|CERT(?:IF\.?|#|NUMBER|IFICATE)?)\s*[:\s#-]*\s*([A-Z0-9][A-Z0-9.#/\\-]{2,})\b",
+    re.IGNORECASE
 )
 
 _SUBSCRIBER_RE = re.compile(
-    r"\b(?:MEMBER\s+EMPLOYEE\s+NAME|EMPLOYEE\s+NAME|SUBSCRIBER(?:\s+NAME)?|MEMBER(?:\s+NAME)?|NAME)\s*[:\s#-]*\s*([A-Z][A-Z\s.'-]{2,})\b"
+    r"\b(?:MEMBER\s+EMPLOYEE\s+NAME|EMPLOYEE\s+NAME|SUBSCRIBER(?:\s+NAME)?|MEMBER(?:\s+NAME)?|NAME(?:/NOMBRE)?)\s*[:\s#-/]*\s*((?:(?!\b(?:MEDICARE|NUMBER|NUMERO|ID|GROUP|DOB|DATE)\b)[A-Za-z.'-]+\s*){1,4})",
+    re.IGNORECASE
 )
 
 _DOB_RE = re.compile(
     r"\b(?:DATE\s+OF\s+BIRTH|BIRTH\s*DATE|DOB|BIRTH)\s*[:\s#-]*\s*"
-    r"([0-9]{1,2}[/.-][0-9]{1,2}[/.-][0-9]{2,4}|[A-Z][a-z]+\.?\s+[0-9]{1,2},?\s+[0-9]{4})\b"
+    r"([0-9]{1,2}[/.-][0-9]{1,2}[/.-][0-9]{2,4}|[A-Z][a-z]+\.?\s+[0-9]{1,2},?\s+[0-9]{4})\b",
+    re.IGNORECASE
 )
 
-_RELATIONSHIP_RE = re.compile(r"\bRELATIONSHIP\s*[:\s#-]*\s*([A-Z][A-Z\s.-]{2,})\b")
+_RELATIONSHIP_RE = re.compile(r"\bRELATIONSHIP\s*[:\s#-]*\s*([A-Z][A-Z\s.-]{2,})\b", re.IGNORECASE)
 _EHIC_TITLE_RE = re.compile(r"EUROPEAN\s+HEALTH\s+INSURANCE\s+CARD", re.IGNORECASE)
 _NUMBERED_LINE_RE = re.compile(r"^\s*(\d{1,2})[.)\-:]?\s+(.+?)\s*$")
 

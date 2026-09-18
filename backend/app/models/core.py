@@ -58,6 +58,7 @@ class InsuranceVerification(Base):
     benefits: Mapped[Optional["InsuranceBenefits"]] = relationship(back_populates="verification", cascade="all, delete-orphan")
     limitations: Mapped[List["BenefitLimitation"]] = relationship(back_populates="verification", cascade="all, delete-orphan")
     events: Mapped[List["VerificationEvent"]] = relationship(back_populates="verification", cascade="all, delete-orphan")
+    treatment_benefits: Mapped[List["TreatmentBenefit"]] = relationship(back_populates="verification", cascade="all, delete-orphan")
 
 class PayerResponse(Base):
     __tablename__ = "payer_responses"
@@ -114,3 +115,17 @@ class VerificationEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     
     verification: Mapped["InsuranceVerification"] = relationship(back_populates="events")
+
+class TreatmentBenefit(Base):
+    __tablename__ = "treatment_benefits"
+    
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    verification_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("insurance_verifications.id"), index=True)
+    treatment: Mapped[str] = mapped_column(String(100))
+    covered: Mapped[bool] = mapped_column()
+    coverage_percentage: Mapped[Optional[Decimal]] = mapped_column(Numeric(5, 2))
+    waiting_period: Mapped[Optional[str]] = mapped_column(String(100))
+    frequency: Mapped[Optional[str]] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    
+    verification: Mapped["InsuranceVerification"] = relationship(back_populates="treatment_benefits")
