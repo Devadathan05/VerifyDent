@@ -1,4 +1,4 @@
-# [Project Name]
+# VerifyDent
 
 ### **DSOLVE 2026** · DRISHTI · College of Engineering Trivandrum (CET)
 
@@ -8,7 +8,7 @@
 | ----------------- | -----------------------------------------                            |
 | **Problem:**      | Problem 3: Insurance Verification                                    |
 | **Team Name:**    | EvoKind                                                              |
-| **Team Members:** | Devika Sajeesh · Niyas S Makiyil · Devadathan J · Ejo Abhilash       |
+| **Team Members:** | Devika Sajeesh · Niyas S Makkiyil · Devadathan J · Ejo Abhilash       |
 | **Institution:**  | College of Engineering Trivandrum                                              |
 | **Live Demo:**    | [Demo link goes here]                                                |
 | **Pitch Video:**  | [Social media pitch video link]                                      |
