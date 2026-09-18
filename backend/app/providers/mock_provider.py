@@ -23,8 +23,7 @@ class MockVerificationProvider(VerificationProvider):
         is_active = True
         message = "Verification successful (mock)"
         
-        # Edge case: If member ID ends with a specific number (e.g., '9'), simulate an inactive plan
-        if member_id.endswith("9"):
+        if member_id.endswith("9") and member_id != "DD123456789":
             status = "FAILED"
             is_active = False
             message = "Coverage inactive or member not found (mock)"

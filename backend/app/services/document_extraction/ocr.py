@@ -39,12 +39,12 @@ from .base import DocumentExtractor, DocumentExtractionError, ExtractedValue, In
 # ---------------------------------------------------------------------------
 
 _MEMBER_ID_RE = re.compile(
-    r"\b(?:SUBSCRIBER\s+ID|MEMBER\s+ID|CUSTOMER\s+ID|MEDICARE\s+NUMBER(?:/NUMERO\s+DE\s+MEDICARE)?|ID)\s*[:\s#-/]*\s*([A-Z0-9][A-Z0-9.#/\\-]{2,})\b",
+    r"\b(?:SUBSCRIBER\s+ID|MEMBER\s+ID|CUSTOMER\s+ID|MEDICARE\s+NUMBER(?:/NUMERO\s+DE\s+MEDICARE)?|ID)(?:\s*/\s*ID\s+DE\s+MIEMBRO)?\s*[:\s#-/]*\s*([A-Z0-9][A-Z0-9.#/\\-]{2,})\b",
     re.IGNORECASE
 )
 
 _GROUP_RE = re.compile(
-    r"\b(?:GRP(?:\.|\b)?|GROUP(?:\s*(?:NO|NUMBER|#|\.)|#)?)\s*[:\s#-]*\s*([A-Z0-9][A-Z0-9.#/\\-]{2,})\b",
+    r"\b(?:GRP(?:\.|\b)?|GROUP(?:\s*(?:NO|NUMBER|#|\.)|#)?)(?:\s*/\s*N[ÚU]MERO\s+DE\s+GRUPO)?(?:.*?)(?<![A-Z0-9])([A-Z0-9]{2,}[0-9][A-Z0-9]*|[0-9][A-Z0-9]{2,}|GRP[A-Z0-9]+)\b",
     re.IGNORECASE
 )
 
@@ -54,7 +54,7 @@ _POLICY_RE = re.compile(
 )
 
 _SUBSCRIBER_RE = re.compile(
-    r"\b(?:MEMBER\s+EMPLOYEE\s+NAME|EMPLOYEE\s+NAME|SUBSCRIBER(?:\s+NAME)?|MEMBER(?:\s+NAME)?|NAME(?:/NOMBRE)?)\s*[:\s#-/]*\s*((?:(?!\b(?:MEDICARE|NUMBER|NUMERO|ID|GROUP|DOB|DATE)\b)[A-Za-z.'-]+\s*){1,4})",
+    r"\b(?:MEMBER\s+EMPLOYEE\s+NAME|EMPLOYEE\s+NAME|SUBSCRIBER(?:\s+NAME)?|MEMBER(?:\s+NAME)?|NAME(?:/NOMBRE)?)\s*[:\s#-/]*\s*((?:(?!\b(?:MEMBER|MEDICARE|NUMBER|NUMERO|ID|GROUP|GRP|DOB|DATE)\b)[A-Za-z.'-]+\s*){1,4})",
     re.IGNORECASE
 )
 
@@ -70,7 +70,7 @@ _NUMBERED_LINE_RE = re.compile(r"^\s*(\d{1,2})[.)\-:]?\s+(.+?)\s*$")
 
 # Lines that are never the payer name (contact info, boilerplate, plan codes).
 _SKIP_PAYER_UNLESS = re.compile(
-    r"(^\d|1-800|800-\d|©|CUSTOMER|CALL|WWW|\.COM|PO BOX|MEMBER ID|SUBSCRIBER|NAME:|\.\d{3})",
+    r"(^\d|1-800|800-\d|CUSTOMER|CALL|WWW|\.COM|PO BOX|MEMBER ID|SUBSCRIBER|NAME(?:/NOMBRE)?|NOMBRE|\.\d{3})",
     re.IGNORECASE,
 )
 
