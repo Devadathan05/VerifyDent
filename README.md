@@ -46,33 +46,49 @@ The solution should explore ways to automate or significantly reduce this manual
 
 ### Why this matters
 
-[Short paragraph: the real-world impact, who is affected, etc.]
+Insurance verification is a high-friction administrative task for dental teams.
+Staff need to collect information from a card, enter it into payer systems,
+interpret benefit responses, and connect the result to the patient's
+appointment. Delays or transcription errors can affect scheduling, treatment
+planning, and the patient's financial expectations.
 
 ---
 
 ## Our Solution
 
-[Describe what you built, how it solves the problem, and what makes it
-different from existing approaches.]
+VerifyDent is a workflow for turning an insurance card and a scheduled
+appointment into a reviewable verification record. Staff can create or open an
+appointment, enter insurance details manually or upload a card for OCR, review
+the extracted fields, run a payer verification, and inspect treatment coverage
+before confirming a plan.
+
+The application keeps human review in the loop: extracted values include field
+confidence, missing values remain visible, and verification results are linked
+back to the appointment instead of being left as a separate lookup.
 
 ---
 
 ## Key Features
 
-- **Feature 1** — [what it does]
-- **Feature 2** — [what it does]
-- **Feature 3** — [what it does]
-- **Feature 4** — [what it does]
+- **Appointment dashboard** — Create appointments, view scheduled patients, and
+      open an appointment-specific verification workspace.
+- **Insurance intake** — Upload a PDF, PNG, JPG, or JPEG card for OCR, or enter
+      the member and payer fields through the manual form.
+- **Review before verification** — Inspect and correct extracted values before
+      sending them to the verification workflow.
+- **Payer simulation and normalization** — Run deterministic provider adapters
+      for the demo, retain the raw response, and expose normalized benefit data.
+- **Treatment planning** — Add planned treatments and review benefit,
+      eligibility, estimate, and recommendation analysis.
+- **Persistent records** — Store patients, policies, verification results, and
+      appointments in SQLite by default, with a PostgreSQL-ready model layer.
 
 ---
 
 ## Screenshots & Demo
 
-| Screenshot                                            | Description                          |
-| ----------------------------------------------------- | ------------------------------------ |
-| [Screenshot 1](./assets/screenshots/screenshot-1.png) | [What it shows]                      |
-| [Screenshot 2](./assets/screenshots/screenshot-2.png) | [What it shows]                      |
-| [Pitch Video](./assets/pitch/README.md)               | Link to your >30s social pitch video |
+Screenshots and a public pitch video have not been added to the repository
+yet. The application can be demonstrated locally using the script below.
 
 ---
 
@@ -80,15 +96,11 @@ different from existing approaches.]
 
 | Layer           | Technology                         | Why we chose it |
 | --------------- | ---------------------------------- | --------------- |
-| Frontend        | [your frontend framework/platform] | [reason]        |
-| Backend         | [your backend framework/platform]  | [reason]        |
-| Database        | [your database]                    | [reason]        |
-| ML / AI         | [your AI/ML tools/models]          | [reason]        |
-| Infra / Hosting | [where your solution runs]         | [reason]        |
-
-> **Only a sample** — fill in the **"Technology"** column with your own choices.
-> No language, framework, architecture, or project structure is prescribed; use
-> whatever works best for your team.
+| Frontend        | React 19, TypeScript, Vite, Tailwind CSS | Fast, typed workflow UI with a small local toolchain |
+| Backend         | Python 3.12+, FastAPI, Uvicorn | Explicit API contracts and simple local development |
+| Database        | SQLAlchemy with SQLite by default | Zero-setup local persistence with a PostgreSQL-ready model layer |
+| OCR             | Tesseract 5 via pytesseract | Local document processing without sending card images to a third party |
+| Provider layer  | Deterministic mock provider adapters | Repeatable demos and tests without live payer credentials |
 
 ---
 
@@ -96,23 +108,61 @@ different from existing approaches.]
 
 ### Prerequisites
 
-- Your chosen runtime(s) and tools — list them here with versions: `[e.g. runtime X ≥ version]`
-- [Any accounts / API keys required]
+- Python 3.12 or newer
+- Node.js 20 or newer and npm
+- Tesseract OCR 5.x for real card extraction on Windows
 
-### Installation
+No external API keys are required for the local demo. The provider layer uses
+fictional deterministic responses.
 
-> Explain how to run this project
+### Installation and startup
+
+Open two PowerShell terminals from the repository root.
+
+#### Backend
+
+```powershell
+Set-Location backend
+python -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt
+Copy-Item .env.example .env
+.venv\Scripts\python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+On Windows, install Tesseract if it is not already available:
+
+```powershell
+winget install UB-Mannheim.TesseractOCR
+```
+
+The default configuration expects
+`C:\Program Files\Tesseract-OCR\tesseract.exe`. Update `TESSERACT_CMD` in
+`backend/.env` if Tesseract is installed elsewhere.
+
+#### Frontend
+
+```powershell
+Set-Location frontend
+npm install
+npm run dev -- --host 127.0.0.1 --port 5173
+```
+
+Open <http://127.0.0.1:5173>. The backend API documentation is available at
+<http://127.0.0.1:8000/docs>.
 
 ### Environment Variables
 
-| Variable       | Description                       | Example                           |
-| -------------- | --------------------------------- | --------------------------------- |
-| `API_KEY`      | API key for a third-party service | `sk-xxxxxxxxxxxxxxxxxx`           |
-| `DATABASE_URL` | Database connection string        | `your-database-connection-string` |
-| `PORT`         | Port the backend listens on       | `8000`                            |
+| Variable | Description | Example |
+| --- | --- | --- |
+| `DATABASE_URL` | SQLAlchemy database URL | `sqlite:///./verifydent.db` |
+| `CORS_ORIGINS` | Comma-separated frontend origins | `http://localhost:5173,http://127.0.0.1:5173` |
+| `EXTRACTION_PROVIDER` | `auto`, `ocr`, or deterministic `mock` | `auto` |
+| `TESSERACT_CMD` | Absolute Tesseract executable path | `C:\Program Files\Tesseract-OCR\tesseract.exe` |
+| `MAX_UPLOAD_SIZE_MB` | Maximum document upload size | `10` |
 
-> Values above are illustrative examples — replace them with your own. Never
-> commit real keys: use a `.env` file (already gitignored) or `.env.example`.
+Copy `backend/.env.example` to `backend/.env` and keep real secrets out of Git.
+For a demo without Tesseract, use `EXTRACTION_PROVIDER=mock`; this returns
+fictional sample values and is not real OCR.
 
 ---
 
@@ -120,11 +170,17 @@ different from existing approaches.]
 
 _This doubles as your live demo runbook (3–5 min)._
 
-1. **Boot** — start backend + frontend.
-2. **Walkthrough step 1** — [what the judge sees].
-3. **Walkthrough step 2** — [what the judge sees].
-4. **Highlight** — [the "wow" moment / core differentiator].
-5. **Wrap-up** — [summary + where this goes in production].
+1. **Boot** — Start the backend and frontend using the commands above.
+2. **Schedule** — Create an appointment with a fictional patient and open it
+      from the dashboard.
+3. **Capture insurance** — Upload a sample insurance card or switch to manual
+      entry. Review the extracted fields and confidence values.
+4. **Verify** — Confirm the fields and run the provider verification. Show the
+      eligibility status, benefits, and raw provider response.
+5. **Plan treatment** — Add one or more treatments and run the treatment-plan
+      analysis to show coverage and an estimated patient responsibility.
+6. **Close the loop** — Return to the dashboard and show that the appointment
+      now carries its verification status.
 
 ---
 
@@ -132,22 +188,31 @@ _This doubles as your live demo runbook (3–5 min)._
 
 ### Known Limitations
 
-- [Limitation 1]
-- [Limitation 2]
+- Provider responses are deterministic mock simulations; the project does not
+      connect to production payer clearinghouses yet.
+- OCR requires a local Tesseract installation and still requires staff review
+      for low-confidence or missing fields.
+- Authentication, authorization, audit logging, and production secrets
+      management are outside the current demo scope.
 
 ### Future Scope
 
-- [Planned improvement 1]
-- [Planned improvement 2]
+- Add authenticated practice and staff accounts with role-based access.
+- Integrate approved payer or clearinghouse APIs behind the provider interface.
+- Add durable audit events, encrypted document handling, and production
+      deployment configuration.
+- Add automated frontend end-to-end tests and richer appointment filtering.
 
 ---
 
 ## Team
 
-| Name     | Role(s)                         | GitHub    | Email   |
-| -------- | ------------------------------- | --------- | ------- |
-| [Name 1] | [e.g. Full-stack / ML / Design] | [@handle] | [email] |
-| [Name 2] |                                 |           |         |
+| Name | Role(s) | GitHub | Email |
+| --- | --- | --- | --- |
+| Devika Sajeesh | Product and engineering | Not listed | Not listed |
+| Niyas S Makiyil | Product and engineering | Not listed | Not listed |
+| Devadathan J | Product and engineering | Not listed | Not listed |
+| Ejo Abhilash | Product and engineering | Not listed | Not listed |
 
 ---
 

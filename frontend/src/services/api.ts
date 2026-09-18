@@ -128,34 +128,34 @@ export interface NormalizedBenefits {
   provider_source: string | null
   provider_environment: string | null
   provider_schema_version: string | null
-  
+
   // Payer/carrier
   payer_id: string | null
   payer_name: string | null
-  
+
   // Group
   group_number: string | null
   group_name: string | null
   employer_name: string | null
-  
+
   // Plan
   plan_id: string | null
   plan_name: string | null
   plan_type: string | null
   effective_date: string | null
   termination_date: string | null
-  
+
   // Subscriber
   subscriber_id: string | null
   subscriber_name: string | null
   subscriber_relationship: string | null
-  
+
   // Member
   member_id: string | null
   member_name: string | null
   date_of_birth: string | null
   relationship_to_subscriber: string | null
-  
+
   // Eligibility & Benefits
   eligibility_status: string | null
   annual_maximum: number | null
@@ -189,7 +189,7 @@ export async function fetchNormalizationDemo(
   if (subscriberId) {
     body.subscriber_id = subscriberId
   }
-  
+
   const res = await fetch(`${BACKEND_URL}/api/normalization/demo`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -334,7 +334,15 @@ export async function createAppointment(payload: AppointmentCreatePayload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
-  if (!res.ok) throw new Error('Failed to create appointment')
+  if (!res.ok) {
+    const errorBody = (await res.json().catch(() => null)) as
+      | { detail?: string | Array<{ msg?: string }> }
+      | null
+    const detail = Array.isArray(errorBody?.detail)
+      ? errorBody.detail.map((item) => item.msg).filter(Boolean).join(', ')
+      : errorBody?.detail
+    throw new Error(detail ?? `Failed to create appointment (status ${res.status})`)
+  }
   return await res.json()
 }
 
