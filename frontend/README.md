@@ -1,50 +1,32 @@
-# Frontend — [Project Name]
+# React + TypeScript + Vite
 
-Put your web/mobile application here: user interfaces, dashboards, mobile apps,
-PWA, etc.
+This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
-## Stack (fill in)
+Currently, two official plugins are available:
 
-- Framework / platform: [your choice]
-- Styling: [your choice]
-- HTTP client: [your choice]
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-## Local Setup (fill in)
+## React Compiler
 
-```bash
-cd frontend
-<install frontend dependencies — command for your package manager>
-<start the frontend app>
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+
+## Expanding the Oxlint configuration
+
+If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+
+```json
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "oxc"],
+  "options": {
+    "typeAware": true
+  },
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/only-export-components": ["warn", { "allowConstantExport": true }]
+  }
+}
 ```
 
-## Environment Variables
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `BACKEND_URL` | Backend API base URL | `http://localhost:8000` |
-
-> Values above are illustrative examples only — replace them with your own.
-> Never commit real `.env` values — see root `.gitignore`. A starting point is
-> provided in `.env.example`.
-
-## Tests & Lint
-
-```bash
-# Replace <commands> with the ones for your stack
-<your test command>
-<your lint command>
-<your build command>
-```
-
-## Project Layout (adjust to your stack)
-
-```
-frontend/
-├── <entry point>       # app entry point
-├── <root component>    # main app component
-├── <components/>       # reusable UI
-├── <pages/>            # route views
-├── <services/>         # API calls
-├── <config files for your tooling>
-└── .env.example
-```
+See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
