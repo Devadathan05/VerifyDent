@@ -24,6 +24,18 @@ class Settings(BaseSettings):
     # Local dev: Vite dev server default origin. "http://localhost:5173" etc.
     cors_origins: list[str] = ["http://localhost:5173"]
 
+    # Document extraction (MVP).
+    # "auto" -> Tesseract OCR if available, otherwise a safe unavailable response.
+    # "ocr"  -> force Tesseract OCR (errors if the binary is missing).
+    # "mock" -> deterministic fictional sample output.
+    extraction_provider: str = "auto"
+
+    # Absolute path to the Tesseract binary (used with the "ocr" provider).
+    tesseract_cmd: str = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
+    # Maximum accepted upload size in MB for insurance documents.
+    max_upload_size_mb: int = 10
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, value):
