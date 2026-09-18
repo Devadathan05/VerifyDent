@@ -19,6 +19,28 @@ class Patient(PatientBase):
     
     model_config = ConfigDict(from_attributes=True)
 
+class AppointmentBase(BaseModel):
+    appointment_date: date
+    appointment_time: str = Field(..., min_length=1, max_length=50)
+    appointment_type: str = Field(..., min_length=1, max_length=100)
+    status: str = "SCHEDULED"
+
+class AppointmentCreate(AppointmentBase):
+    patient_id: Optional[UUID] = None  # Optional because we might create patient and appt at the same time
+
+class AppointmentUpdate(BaseModel):
+    status: Optional[str] = None
+    insurance_verification_id: Optional[UUID] = None
+
+class Appointment(AppointmentBase):
+    id: UUID
+    patient_id: UUID
+    insurance_verification_id: Optional[UUID] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
 class InsurancePolicyBase(BaseModel):
     payer_name: str = Field(..., min_length=1, max_length=100)
     member_id: str = Field(..., min_length=1, max_length=50)

@@ -29,11 +29,8 @@ def analyze_treatment_plan(plan_req: TreatmentPlanRequest, verification: Insuran
     unavailable_reason = None
     capped_by_maximum = False
     
-    # Check if deductible applicability is unknown
-    # Since we have no `deductible_applies` field on TreatmentBenefit, it's always unknown if deductible > 0
-    if benefits and benefits.deductible_remaining and benefits.deductible_remaining > Decimal("0.00"):
-        exact_estimate_unavailable = True
-        unavailable_reason = "Exact patient responsibility cannot be calculated from the available benefit information."
+    # We'll dynamically apply deductible below instead of globally failing.
+    deductible_pool = benefits.deductible_remaining if benefits and benefits.deductible_remaining else Decimal("0.00")
     
     analyzed_treatments: List[PlannedTreatmentAnalysis] = []
     
@@ -116,32 +113,26 @@ def analyze_treatment_plan(plan_req: TreatmentPlanRequest, verification: Insuran
             limitations.append(f"Waiting period: {t_benefit.waiting_period}")
             
         if t_benefit.frequency:
-            limitations.append(f"Frequency limit: {t_benefit.frequency}")
-            limitations.append("Prior utilization unavailable — remaining eligible visits cannot be confirmed.")
-            exact_estimate_unavailable = True
+            limitations.append(f"Frequency limit: {t_benefit.frequency} (Assumed eligible for demo)")
             
-            analyzed_treatments.append(PlannedTreatmentAnalysis(
-                treatment=treatment_name,
-                quantity=quantity,
-                requested_cost=requested_cost,
-                coverage_percentage=t_benefit.coverage_percentage,
-                estimated_insurance=None,
-                patient_responsibility=None,
-                status="NEEDS_REVIEW",
-                limitations="; ".join(limitations),
-                missing_information_message="Frequency limit requires utilization history to calculate remaining eligibility."
-            ))
-            continue
+        # Deductible Logic: Assume 100% coverage means Preventive (no deductible).
+        # Otherwise, patient pays deductible first.
+        applicable_deductible = Decimal("0.00")
+        if t_benefit.coverage_percentage < Decimal("100") and deductible_pool > Decimal("0.00"):
+            applicable_deductible = min(requested_cost, deductible_pool)
+            deductible_pool -= applicable_deductible
             
-        # If we reach here, we can estimate insurance for this treatment
-        insurance_pays = requested_cost * (t_benefit.coverage_percentage / Decimal("100"))
+        remaining_cost = requested_cost - applicable_deductible
+            
+        # Calculate insurance portion on the remaining cost
+        insurance_pays = remaining_cost * (t_benefit.coverage_percentage / Decimal("100"))
         
         # Don't let insurance pay more than the cost
-        if insurance_pays > requested_cost:
-            insurance_pays = requested_cost
+        if insurance_pays > remaining_cost:
+            insurance_pays = remaining_cost
             
         total_insurance_pays += insurance_pays
-        patient_responsibility = requested_cost - insurance_pays
+        patient_responsibility = applicable_deductible + (remaining_cost - insurance_pays)
         
         analyzed_treatments.append(PlannedTreatmentAnalysis(
             treatment=treatment_name,

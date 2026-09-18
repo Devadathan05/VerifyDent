@@ -285,3 +285,77 @@ export async function fetchTreatmentPlanAnalysis(
 
   return (await res.json()) as TreatmentPlanAnalysis
 }
+
+export interface AppointmentPatientPayload {
+  first_name: string
+  last_name: string
+  date_of_birth: string
+}
+
+export interface AppointmentCreatePayload {
+  patient: AppointmentPatientPayload
+  appointment_date: string
+  appointment_time: string
+  appointment_type: string
+  status: string
+}
+
+export interface AppointmentSummary {
+  id: string
+  patient_name: string
+  appointment_date: string
+  appointment_time: string
+  appointment_type: string
+  status: string
+  insurance_status: string
+}
+
+export interface AppointmentDetail {
+  appointment: {
+    id: string
+    appointment_date: string
+    appointment_time: string
+    appointment_type: string
+    status: string
+    insurance_verification_id: string | null
+  }
+  patient: {
+    id: string
+    first_name: string
+    last_name: string
+    date_of_birth: string
+  }
+  verification: InsuranceVerification | null
+}
+
+export async function createAppointment(payload: AppointmentCreatePayload) {
+  const res = await fetch(`${BACKEND_URL}/api/appointments/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error('Failed to create appointment')
+  return await res.json()
+}
+
+export async function fetchAppointments(): Promise<AppointmentSummary[]> {
+  const res = await fetch(`${BACKEND_URL}/api/appointments/`)
+  if (!res.ok) throw new Error('Failed to fetch appointments')
+  return (await res.json()) as AppointmentSummary[]
+}
+
+export async function fetchAppointment(id: string): Promise<AppointmentDetail> {
+  const res = await fetch(`${BACKEND_URL}/api/appointments/${id}`)
+  if (!res.ok) throw new Error('Failed to fetch appointment')
+  return (await res.json()) as AppointmentDetail
+}
+
+export async function updateAppointment(id: string, updates: Record<string, any>) {
+  const res = await fetch(`${BACKEND_URL}/api/appointments/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  })
+  if (!res.ok) throw new Error('Failed to update appointment')
+  return await res.json()
+}

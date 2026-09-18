@@ -17,8 +17,25 @@ class Patient(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+    appointments: Mapped[List["Appointment"]] = relationship(back_populates="patient", cascade="all, delete-orphan")
     policies: Mapped[List["InsurancePolicy"]] = relationship(back_populates="patient", cascade="all, delete-orphan")
     verifications: Mapped[List["InsuranceVerification"]] = relationship(back_populates="patient", cascade="all, delete-orphan")
+
+class Appointment(Base):
+    __tablename__ = "appointments"
+    
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    patient_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("patients.id"), index=True)
+    insurance_verification_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("insurance_verifications.id"), nullable=True)
+    appointment_date: Mapped[date] = mapped_column(Date)
+    appointment_time: Mapped[str] = mapped_column(String(50))
+    appointment_type: Mapped[str] = mapped_column(String(100))
+    status: Mapped[str] = mapped_column(String(50), default="SCHEDULED")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    patient: Mapped["Patient"] = relationship(back_populates="appointments")
+    verification: Mapped[Optional["InsuranceVerification"]] = relationship(back_populates="appointments")
 
 class InsurancePolicy(Base):
     __tablename__ = "insurance_policies"
@@ -52,6 +69,7 @@ class InsuranceVerification(Base):
     error_message: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     
+    appointments: Mapped[List["Appointment"]] = relationship(back_populates="verification")
     patient: Mapped["Patient"] = relationship(back_populates="verifications")
     policy: Mapped["InsurancePolicy"] = relationship(back_populates="verifications")
     payer_responses: Mapped[List["PayerResponse"]] = relationship(back_populates="verification", cascade="all, delete-orphan")
