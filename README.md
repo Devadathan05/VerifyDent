@@ -4,14 +4,14 @@
 
 **BUILD. SOLVE. DEMONSTRATE.**
 
-|                   |                                           |
-| ----------------- | ----------------------------------------- |
-| **Problem:**      | Problem N — [Problem Title]               |
-| **Team Name:**    | [Your Team Name]                          |
-| **Team Members:** | [Name 1] · [Name 2] · [Name 3] · [Name 4] |
-| **Institution:**  | [College / University]                    |
-| **Live Demo:**    | [Demo link goes here]                     |
-| **Pitch Video:**  | [Social media pitch video link]           |
+|                   |                                                                      |
+| ----------------- | -----------------------------------------                            |
+| **Problem:**      | Problem 3: Insurance Verification                                    |
+| **Team Name:**    | EvoKind                                                              |
+| **Team Members:** | Devika Sajeesh · Niyas S Makiyil · Devadathan J · Ejo Abhilash       |
+| **Institution:**  | College of Engineering Trivandrum                                              |
+| **Live Demo:**    | [Demo link goes here]                                                |
+| **Pitch Video:**  | [Social media pitch video link]                                      |
 
 ---
 
@@ -35,12 +35,14 @@
 ---
 
 ## Problem Statement
+>
+> Problem 3: Insurance Verification
+>
+>Develop a solution to simplify and automate insurance verification for dental practices. 
 
-> _Copy the official problem statement you chose (from `docs/problem-statements.md`)._
->
-> ## Problem N: [Title]
->
-> [Paste the full official problem text here]
+Currently, dental practices often need to manually contact insurance companies to verify whether a patient's insurance is active and what coverage is available. This process can take 20–30 minutes per patient, creating significant administrative effort and delays. 
+
+The solution should explore ways to automate or significantly reduce this manual process by quickly verifying insurance eligibility and presenting the relevant information to the dental practice in a simple and usable format.
 
 ### Why this matters
 
