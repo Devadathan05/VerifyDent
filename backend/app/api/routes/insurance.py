@@ -53,3 +53,24 @@ def get_verification(verification_id: UUID, db: Session = Depends(get_db)):
     if not db_verification:
         raise HTTPException(status_code=404, detail="Verification not found")
     return db_verification
+
+from app.schemas.core import TreatmentAnalysis
+from app.services.treatment_analysis import analyze_treatment
+from app.models import TreatmentBenefit as TreatmentBenefitModel
+from urllib.parse import unquote
+
+@verifications_router.get("/{verification_id}/treatments/{treatment_name}/analysis", response_model=TreatmentAnalysis)
+def get_treatment_analysis(verification_id: UUID, treatment_name: str, db: Session = Depends(get_db)):
+    db_verification = db.get(VerificationModel, verification_id)
+    if not db_verification:
+        raise HTTPException(status_code=404, detail="Verification not found")
+        
+    decoded_treatment = unquote(treatment_name)
+    
+    # Find the treatment
+    treatment = next((t for t in db_verification.treatment_benefits if t.treatment.lower() == decoded_treatment.lower()), None)
+    if not treatment:
+        raise HTTPException(status_code=404, detail=f"Treatment '{decoded_treatment}' not found in verification")
+        
+    analysis = analyze_treatment(treatment, db_verification.benefits)
+    return analysis

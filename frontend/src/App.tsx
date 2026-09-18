@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import type { ChangeEvent, DragEvent } from 'react'
 
 import { useHealth } from './hooks/useHealth'
@@ -6,8 +6,10 @@ import { Layout } from './components/Layout'
 import {
   type InsuranceExtractionResponse,
   type InsuranceVerification,
+  type NormalizationDemoResponse,
   uploadInsuranceDocument,
-  verifyInsurance
+  verifyInsurance,
+  fetchNormalizationDemo
 } from './services/api'
 
 const fieldLabels: Record<string, string> = {
@@ -22,7 +24,7 @@ const fieldLabels: Record<string, string> = {
   relationship_to_subscriber: 'Relationship to subscriber',
 }
 
-type AppStage = 'upload' | 'processing' | 'review' | 'verifying' | 'confirmed'
+type AppStage = 'upload' | 'processing' | 'review' | 'confirmed' | 'verifying' | 'verified'
 
 function App() {
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -31,8 +33,47 @@ function App() {
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({})
   const [verificationResult, setVerificationResult] = useState<InsuranceVerification | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [selectedTreatment, setSelectedTreatment] = useState<string>('')
   const { status: healthStatus } = useHealth()
+
+  const [demoProviderA, setDemoProviderA] = useState<string>('provider_c_v1')
+  const [demoResponseA, setDemoResponseA] = useState<NormalizationDemoResponse | null>(null)
+  const [demoLoadingA, setDemoLoadingA] = useState(false)
+
+  const [demoPlanSubscriber, setDemoPlanSubscriber] = useState<string>('BASIC')
+  const [demoResponseB, setDemoResponseB] = useState<NormalizationDemoResponse | null>(null)
+  const [demoLoadingB, setDemoLoadingB] = useState(false)
+
+  useEffect(() => {
+    void loadDemoA('provider_c_v1')
+    void loadDemoB('BASIC')
+  }, [])
+
+
+  async function loadDemoA(provider: string) {
+    setDemoProviderA(provider)
+    setDemoLoadingA(true)
+    try {
+      const result = await fetchNormalizationDemo(provider)
+      setDemoResponseA(result)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setDemoLoadingA(false)
+    }
+  }
+
+  async function loadDemoB(subscriberId: string) {
+    setDemoPlanSubscriber(subscriberId)
+    setDemoLoadingB(true)
+    try {
+      const result = await fetchNormalizationDemo('provider_a', subscriberId)
+      setDemoResponseB(result)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setDemoLoadingB(false)
+    }
+  }
 
   async function processFile(file: File) {
     setError(null)
@@ -54,7 +95,11 @@ function App() {
     }
   }
 
-  async function handleConfirm() {
+  function handleConfirm() {
+    setStage('confirmed')
+  }
+
+  async function handleVerify() {
     setStage('verifying')
     setError(null)
     try {
@@ -74,10 +119,10 @@ function App() {
         },
       })
       setVerificationResult(result)
-      setStage('confirmed')
+      setStage('verified')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Verification failed.')
-      setStage('review')
+      setStage('confirmed')
     }
   }
 
@@ -102,7 +147,6 @@ function App() {
     setFieldValues({})
     setVerificationResult(null)
     setError(null)
-    setSelectedTreatment('')
     setStage('upload')
   }
 
@@ -186,7 +230,7 @@ function App() {
           </div>
         )}
 
-        {(stage === 'review' || stage === 'confirmed') && extraction && (
+        {(stage === 'review' || stage === 'confirmed' || stage === 'verified') && extraction && (
           <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex flex-col justify-between gap-3 border-b border-slate-100 pb-5 sm:flex-row sm:items-start">
@@ -200,175 +244,227 @@ function App() {
                 <span className="max-w-48 truncate rounded bg-slate-50 px-2.5 py-1.5 text-xs text-slate-500">{extraction.file_name}</span>
               </div>
               <div className="grid gap-x-5 gap-y-5 pt-6 sm:grid-cols-2">
-                {Object.entries(extraction.fields).map(([key, field]) => (
-                  <label key={key} className="block">
-                    <span className="mb-1.5 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      {fieldLabels[key] ?? key.replaceAll('_', ' ')}
-                      {field.confidence !== null && <span className={field.confidence < 0.8 ? 'text-amber-600' : 'text-emerald-600'}>{Math.round(field.confidence * 100)}%</span>}
-                    </span>
-                    <input
-                      type={key === 'date_of_birth' ? 'date' : 'text'}
-                      value={fieldValues[key] ?? ''}
-                      onChange={(event) => updateField(key, event.target.value)}
-                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
-                    />
-                  </label>
-                ))}
+                {Object.entries(extraction.fields).map(([key, field]) => {
+                  const isLowConfidence = field.confidence !== null && field.confidence < 0.8 && field.confidence >= 0.6
+                  const isVeryLowConfidence = field.confidence !== null && field.confidence < 0.6
+                  const needsReview = isLowConfidence || isVeryLowConfidence
+                  return (
+                    <label key={key} className="block">
+                      <span className="mb-1.5 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        {fieldLabels[key] ?? key.replaceAll('_', ' ')}
+                        {field.confidence !== null && (
+                          <span className={
+                            isVeryLowConfidence ? 'text-red-600 font-bold' :
+                            isLowConfidence ? 'text-amber-600 font-bold' : 
+                            'text-emerald-600'
+                          }>
+                            {Math.round(field.confidence * 100)}%
+                          </span>
+                        )}
+                      </span>
+                      <input
+                        type={key === 'date_of_birth' ? 'date' : 'text'}
+                        value={fieldValues[key] ?? ''}
+                        onChange={(event) => updateField(key, event.target.value)}
+                        disabled={stage === 'verified'}
+                        className={`w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-300 focus:ring-2 focus:ring-primary-100 ${
+                          needsReview && stage === 'review'
+                            ? (isVeryLowConfidence ? 'border-red-300 bg-red-50 focus:border-red-500' : 'border-amber-300 bg-amber-50 focus:border-amber-500')
+                            : 'border-slate-200 focus:border-primary-500'
+                        }`}
+                      />
+                      {needsReview && stage === 'review' && (
+                        <p className={`mt-1 text-xs font-semibold ${isVeryLowConfidence ? 'text-red-600' : 'text-amber-600'}`}>
+                          {isVeryLowConfidence ? 'Needs confirmation' : 'Please review this field.'}
+                        </p>
+                      )}
+                    </label>
+                  )
+                })}
               </div>
-              {stage === 'review' && <div className="mt-7 flex flex-col-reverse justify-end gap-3 border-t border-slate-100 pt-5 sm:flex-row"><button type="button" onClick={resetUpload} className="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">Start over</button><button type="button" onClick={handleConfirm} className="rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700">Confirm details</button></div>}
-              {stage === 'confirmed' && verificationResult && (
-                <div className="mt-8 border-t border-slate-100 pt-6">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Insurance Status</p>
-                  <div className="mt-4 flex items-center gap-3">
-                    {verificationResult.status === 'VERIFIED' ? (
-                      <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">✓ ACTIVE</span>
-                    ) : verificationResult.status === 'NEEDS_REVIEW' ? (
-                      <span className="flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-700">! NEEDS REVIEW</span>
-                    ) : (
-                      <span className="flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-sm font-semibold text-red-700">✗ FAILED</span>
-                    )}
-                    <span className="text-sm font-medium text-slate-700">{fieldValues.payer_name}</span>
-                  </div>
-                  
-                  {verificationResult.benefits && (
-                    <div className="mt-6 grid gap-6 sm:grid-cols-2">
-                      <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
-                        <p className="text-xs font-medium text-slate-500">Deductible</p>
-                        <p className="mt-1 text-2xl font-semibold text-slate-900">${verificationResult.benefits.deductible}</p>
-                        <p className="mt-1 text-sm text-slate-500">${verificationResult.benefits.deductible_remaining} remaining</p>
+              
+              {stage === 'review' && (
+                <div className="mt-7 flex flex-col-reverse justify-end gap-3 border-t border-slate-100 pt-5 sm:flex-row">
+                  <button type="button" onClick={resetUpload} className="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">Start over</button>
+                  <button type="button" onClick={handleConfirm} className="rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700">Confirm details</button>
+                </div>
+              )}
+
+              {stage === 'confirmed' && (
+                <div className="mt-7 flex flex-col-reverse justify-end gap-3 border-t border-slate-100 pt-5 sm:flex-row">
+                  <button type="button" onClick={() => setStage('review')} className="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">Edit details</button>
+                  <button type="button" onClick={handleVerify} className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">Verify Insurance</button>
+                </div>
+              )}
+
+              {stage === 'verified' && verificationResult && (
+                <div className="mt-8 border-t border-slate-100 pt-8">
+                  {verificationResult.status === 'FAILED' ? (
+                    <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+                      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
+                        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                       </div>
-                      <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
-                        <p className="text-xs font-medium text-slate-500">Annual Maximum</p>
-                        <p className="mt-1 text-2xl font-semibold text-slate-900">${verificationResult.benefits.annual_maximum}</p>
-                        <p className="mt-1 text-sm text-slate-500">${verificationResult.benefits.annual_maximum_remaining} remaining</p>
-                      </div>
-                      <div className="sm:col-span-2 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
-                        <p className="mb-3 text-xs font-medium text-slate-500">Coverage</p>
-                        <div className="flex justify-between border-b border-slate-200/60 pb-2 text-sm">
-                          <span className="text-slate-600">Preventive</span><span className="font-semibold text-slate-900">{verificationResult.benefits.preventive_coverage}%</span>
+                      <h3 className="text-lg font-semibold text-red-800">Verification Failed</h3>
+                      <p className="mt-2 text-sm text-red-700">The provider did not return a successful verification response.</p>
+                      {verificationResult.error_message && (
+                        <p className="mt-2 text-sm font-semibold text-red-800">{verificationResult.error_message}</p>
+                      )}
+                      <button onClick={() => setStage('confirmed')} className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-700 transition">Try again</button>
+                    </div>
+                  ) : (
+                    <div className="space-y-12">
+                      {/* 1. VERIFICATION SUMMARY */}
+                      <section>
+                        <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+                          <h3 className="text-lg font-semibold text-slate-900">Insurance Verification</h3>
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">Demo verification — Mock Provider</span>
                         </div>
-                        <div className="flex justify-between border-b border-slate-200/60 py-2 text-sm">
-                          <span className="text-slate-600">Basic</span><span className="font-semibold text-slate-900">{verificationResult.benefits.basic_coverage}%</span>
+                        <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Status</p>
+                            <div className="mt-2 flex items-center gap-2">
+                              {verificationResult.status === 'VERIFIED' ? (
+                                <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-sm font-semibold text-emerald-700">
+                                  <span className="h-2 w-2 rounded-full bg-emerald-500"></span> ACTIVE
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-sm font-semibold text-red-700">
+                                  <span className="h-2 w-2 rounded-full bg-red-500"></span> INACTIVE
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:col-span-2">
+                            <div className="grid grid-cols-2 gap-y-4 gap-x-6 text-sm">
+                              <div><span className="block text-xs text-slate-500">Payer Name</span><span className="font-medium text-slate-900">{fieldValues.payer_name || 'Unknown'}</span></div>
+                              <div><span className="block text-xs text-slate-500">Member ID</span><span className="font-medium text-slate-900">{fieldValues.member_id || 'Unknown'}</span></div>
+                              <div><span className="block text-xs text-slate-500">Subscriber</span><span className="font-medium text-slate-900">{fieldValues.subscriber_name || 'Unknown'}</span></div>
+                              <div><span className="block text-xs text-slate-500">Relationship</span><span className="font-medium text-slate-900">{fieldValues.relationship_to_subscriber || 'Self'}</span></div>
+                            </div>
+                            <div className="mt-4 border-t border-slate-100 pt-3 text-xs text-slate-400">
+                              Verified via Mock Verification Provider
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex justify-between pt-2 text-sm">
-                          <span className="text-slate-600">Major</span><span className="font-semibold text-slate-900">{verificationResult.benefits.major_coverage}%</span>
+                      </section>
+
+                      {verificationResult.benefits && (
+                        <>
+                          {/* 2. FINANCIAL SUMMARY */}
+                          <section>
+                            <h4 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-900">Financial Summary</h4>
+                            <div className="grid gap-4 sm:grid-cols-3">
+                              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                                <p className="text-xs font-medium text-slate-500">Individual Deductible</p>
+                                <p className="mt-1 text-2xl font-bold text-slate-900">${verificationResult.benefits.deductible ?? '—'}</p>
+                                <p className="mt-1 text-sm text-emerald-600 font-medium">${verificationResult.benefits.deductible_remaining ?? '—'} remaining</p>
+                              </div>
+                              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                                <p className="text-xs font-medium text-slate-500">Annual Maximum</p>
+                                <p className="mt-1 text-2xl font-bold text-slate-900">${verificationResult.benefits.annual_maximum ?? '—'}</p>
+                                <p className="mt-1 text-sm text-emerald-600 font-medium">${verificationResult.benefits.annual_maximum_remaining ?? '—'} remaining</p>
+                              </div>
+                              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm flex flex-col justify-center">
+                                <p className="text-xs font-medium text-emerald-800 uppercase tracking-wider">Overall Status</p>
+                                <p className="mt-1 text-lg font-bold text-emerald-700">Coverage is active and verifiable.</p>
+                              </div>
+                            </div>
+                          </section>
+
+                          {/* 3. DENTAL COVERAGE */}
+                          <section>
+                            <h4 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-900">Dental Coverage</h4>
+                            <div className="grid gap-4 sm:grid-cols-3">
+                              <div className="rounded-xl border-l-4 border-l-sky-500 bg-white p-4 shadow-sm border-y border-r border-slate-200">
+                                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Preventive</p>
+                                <p className="mt-2 text-2xl font-bold text-slate-900">{verificationResult.benefits.preventive_coverage ?? 0}%</p>
+                              </div>
+                              <div className="rounded-xl border-l-4 border-l-indigo-500 bg-white p-4 shadow-sm border-y border-r border-slate-200">
+                                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Basic</p>
+                                <p className="mt-2 text-2xl font-bold text-slate-900">{verificationResult.benefits.basic_coverage ?? 0}%</p>
+                              </div>
+                              <div className="rounded-xl border-l-4 border-l-amber-500 bg-white p-4 shadow-sm border-y border-r border-slate-200">
+                                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Major</p>
+                                <p className="mt-2 text-2xl font-bold text-slate-900">{verificationResult.benefits.major_coverage ?? 0}%</p>
+                              </div>
+                            </div>
+                          </section>
+                          
+                          {/* 5. AT A GLANCE */}
+                          <section>
+                            <h4 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-900">At a Glance</h4>
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm space-y-2">
+                              <p className="text-sm text-slate-700">• Preventive care is covered at <strong className="font-semibold text-slate-900">{verificationResult.benefits.preventive_coverage}%</strong>.</p>
+                              <p className="text-sm text-slate-700">• Basic procedures are covered at <strong className="font-semibold text-slate-900">{verificationResult.benefits.basic_coverage}%</strong>.</p>
+                              <p className="text-sm text-slate-700">• Major procedures are covered at <strong className="font-semibold text-slate-900">{verificationResult.benefits.major_coverage}%</strong>.</p>
+                              <p className="text-sm text-slate-700">• <strong className="font-semibold text-slate-900">${verificationResult.benefits.deductible_remaining}</strong> of the ${verificationResult.benefits.deductible} deductible remains.</p>
+                              <p className="text-sm text-slate-700">• <strong className="font-semibold text-slate-900">${verificationResult.benefits.annual_maximum_remaining}</strong> of the ${verificationResult.benefits.annual_maximum} annual maximum remains.</p>
+                            </div>
+                          </section>
+                        </>
+                      )}
+
+                      {/* 4. TREATMENT BENEFITS TABLE */}
+                      {verificationResult.treatment_benefits && verificationResult.treatment_benefits.length > 0 && (
+                        <section>
+                          <h4 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-900">Treatment Benefits</h4>
+                          <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+                            <table className="w-full text-left text-sm text-slate-600">
+                              <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
+                                <tr>
+                                  <th className="px-5 py-4 font-semibold">Treatment</th>
+                                  <th className="px-5 py-4 font-semibold">Coverage</th>
+                                  <th className="px-5 py-4 font-semibold">Deductible Applies</th>
+                                  <th className="px-5 py-4 font-semibold">Limitations</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 bg-white">
+                                {verificationResult.treatment_benefits.map((tb) => (
+                                  <tr key={tb.treatment}>
+                                    <td className="px-5 py-4 font-medium text-slate-900">{tb.treatment}</td>
+                                    <td className="px-5 py-4">
+                                      {tb.covered ? (tb.coverage_percentage !== null ? `${tb.coverage_percentage}%` : 'Covered') : 'Not Covered'}
+                                    </td>
+                                    <td className="px-5 py-4 text-slate-500">
+                                      {tb.treatment.toLowerCase().includes('clean') || tb.treatment.toLowerCase().includes('x-ray') ? 'No' : 'Yes'}
+                                    </td>
+                                    <td className="px-5 py-4 text-slate-500">
+                                      {[tb.frequency, tb.waiting_period].filter(Boolean).join('; ') || '—'}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </section>
+                      )}
+
+                      {/* 6. LIMITATIONS / IMPORTANT NOTES */}
+                      <section>
+                        <h4 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-900">Limitations & Important Notes</h4>
+                        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                          {verificationResult.treatment_benefits && verificationResult.treatment_benefits.some(tb => tb.frequency || tb.waiting_period) ? (
+                            <ul className="space-y-3">
+                              {verificationResult.treatment_benefits
+                                .filter(tb => tb.frequency || tb.waiting_period)
+                                .map(tb => (
+                                  <li key={tb.treatment} className="text-sm text-slate-700">
+                                    <strong className="font-semibold text-slate-900">{tb.treatment}:</strong> {[tb.frequency, tb.waiting_period].filter(Boolean).join(', ')}
+                                  </li>
+                                ))}
+                            </ul>
+                          ) : (
+                            <p className="text-sm text-slate-500">No limitations reported.</p>
+                          )}
                         </div>
+                      </section>
+                      
+                      <div className="mt-8 pt-6 border-t border-slate-200 text-center">
+                         <button type="button" onClick={resetUpload} className="rounded-lg bg-slate-100 px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-200 transition">Start a new verification</button>
                       </div>
                     </div>
                   )}
-
-                  {/* Treatment Benefits Section */}
-                  <div className="mt-8 border-t border-slate-100 pt-6">
-                    <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Treatment Benefits</p>
-                    
-                    {verificationResult.status === 'NEEDS_REVIEW' || verificationResult.status === 'UNKNOWN' ? (
-                      <div className="rounded-xl border border-amber-100 bg-amber-50 p-6 text-center">
-                        <p className="font-semibold text-amber-800">Treatment benefits unavailable</p>
-                        <p className="mt-1 text-sm text-amber-700">Payer must be confirmed before verification.</p>
-                      </div>
-                    ) : verificationResult.treatment_benefits && verificationResult.treatment_benefits.length > 0 ? (
-                      <div className="space-y-6">
-                        {/* Table View */}
-                        <div className="overflow-x-auto rounded-xl border border-slate-200">
-                          <table className="w-full text-left text-sm text-slate-600">
-                            <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
-                              <tr>
-                                <th className="px-4 py-3 font-medium">Treatment</th>
-                                <th className="px-4 py-3 font-medium">Covered</th>
-                                <th className="px-4 py-3 font-medium">Coverage</th>
-                                <th className="px-4 py-3 font-medium">Waiting Period</th>
-                                <th className="px-4 py-3 font-medium">Frequency</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 bg-white">
-                              {verificationResult.treatment_benefits.map((tb) => (
-                                <tr key={tb.treatment}>
-                                  <td className="px-4 py-3 font-medium text-slate-900">{tb.treatment}</td>
-                                  <td className="px-4 py-3">
-                                    {tb.covered ? (
-                                      <span className="text-emerald-600">✓ Covered</span>
-                                    ) : (
-                                      <span className="text-red-600">✗ Not Covered</span>
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3">{tb.coverage_percentage !== null ? `${tb.coverage_percentage}%` : '-'}</td>
-                                  <td className="px-4 py-3">{tb.waiting_period || 'None'}</td>
-                                  <td className="px-4 py-3 text-xs">{tb.frequency || '-'}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-
-                        {/* Dropdown Selector */}
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5">
-                          <label className="block text-sm font-medium text-slate-700">Check a treatment</label>
-                          <select 
-                            className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 sm:w-64"
-                            value={selectedTreatment}
-                            onChange={(e) => setSelectedTreatment(e.target.value)}
-                          >
-                            <option value="" disabled>Select a treatment...</option>
-                            {verificationResult.treatment_benefits.map((tb) => (
-                              <option key={tb.treatment} value={tb.treatment}>{tb.treatment}</option>
-                            ))}
-                          </select>
-
-                          {selectedTreatment && verificationResult.treatment_benefits.find(t => t.treatment === selectedTreatment) && (
-                            <div className="mt-4 rounded-lg bg-white p-4 shadow-sm border border-slate-200">
-                              {(() => {
-                                const tb = verificationResult.treatment_benefits.find(t => t.treatment === selectedTreatment)!
-                                return (
-                                  <div className="space-y-3">
-                                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                                      <h4 className="font-semibold text-slate-900">{tb.treatment}</h4>
-                                      {tb.covered ? (
-                                        <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">✓ Covered</span>
-                                      ) : (
-                                        <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700">✗ Not Covered</span>
-                                      )}
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4 text-sm">
-                                      <div>
-                                        <p className="text-slate-500">Estimated plan coverage</p>
-                                        <p className="font-medium text-slate-900">{tb.coverage_percentage !== null ? `${tb.coverage_percentage}%` : 'N/A'}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-slate-500">Waiting period</p>
-                                        <p className="font-medium text-slate-900">{tb.waiting_period || 'None'}</p>
-                                      </div>
-                                      <div className="col-span-2">
-                                        <p className="text-slate-500">Frequency</p>
-                                        <p className="font-medium text-slate-900">{tb.frequency || 'N/A'}</p>
-                                      </div>
-                                      {verificationResult.benefits?.annual_maximum_remaining !== null && (
-                                        <div className="col-span-2 border-t border-slate-100 pt-2">
-                                          <p className="text-slate-500">Annual maximum remaining</p>
-                                          <p className="font-medium text-slate-900">${verificationResult.benefits?.annual_maximum_remaining}</p>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                )
-                              })()}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {verificationResult.error_message && (
-                     <div className="mt-4 rounded-lg bg-amber-50 p-4 text-sm text-amber-800 border border-amber-200">
-                       {verificationResult.error_message}
-                     </div>
-                  )}
-                  
-                  <p className="mt-6 text-center text-xs text-slate-400">Demo verification — Mock Provider</p>
-                  
-                  <div className="mt-6 text-center">
-                     <button type="button" onClick={resetUpload} className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 transition">Start a new verification</button>
-                  </div>
                 </div>
               )}
             </section>
@@ -383,6 +479,169 @@ function App() {
               </details>
             </aside>
           </div>
+        )}
+
+        {/* Normalization Demo Section */}
+        {false && (
+        <div className="mt-16 border-t border-slate-200 pt-16">
+          <details className="group">
+            <summary className="cursor-pointer list-none">
+              <div className="mb-8 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary-700 flex items-center gap-2">
+                    <span className="inline-block transition-transform group-open:rotate-90">▶</span>
+                    Developer Demo
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">Architecture: Provider Normalization vs. Plan Data</h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+                    Provider mappings describe the external API structure. Plan and employer differences are represented as insurance data, not separate integrations.
+                  </p>
+                </div>
+              </div>
+            </summary>
+
+            <div className="space-y-16 mt-6">
+            {/* SECTION A */}
+            <section>
+              <h3 className="text-lg font-semibold text-slate-900 mb-4">SECTION A: Provider Schema Normalization</h3>
+              <p className="text-sm text-slate-500 mb-6">
+                See how different APIs—or versions of the same API—map to a canonical model.
+              </p>
+              
+              <div className="mb-6 flex flex-wrap gap-2">
+                {[
+                  { id: 'provider_b', label: 'Provider B' },
+                  { id: 'provider_c_v1', label: 'Provider C v1' },
+                  { id: 'provider_c_v2', label: 'Provider C v2' },
+                  { id: 'provider_d', label: 'Provider D' }
+                ].map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => loadDemoA(p.id)}
+                    className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                      demoProviderA === p.id 
+                        ? 'bg-primary-600 text-white shadow-sm' 
+                        : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="relative grid grid-cols-1 gap-6 lg:grid-cols-2">
+                {demoLoadingA && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/50 backdrop-blur-sm">
+                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-100 border-t-primary-600" />
+                  </div>
+                )}
+                
+                {demoResponseA && (
+                  <>
+                    {/* Raw Response A */}
+                    <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                      <div className="border-b border-slate-100 bg-slate-50 px-5 py-3">
+                        <h3 className="text-sm font-semibold text-slate-900">Synthetic External Schema (Raw)</h3>
+                      </div>
+                      <div className="flex-1 overflow-auto bg-slate-900 p-5 text-emerald-400">
+                        <pre className="text-xs font-mono">
+                          {JSON.stringify(demoResponseA?.raw_response, null, 2)}
+                        </pre>
+                      </div>
+                    </div>
+
+                    {/* Normalized Response A */}
+                    <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                      <div className="border-b border-slate-100 bg-slate-50 px-5 py-3">
+                        <h3 className="text-sm font-semibold text-slate-900">Canonical VerifyDent Schema</h3>
+                      </div>
+                      <div className="border-b border-slate-100 bg-white p-5">
+                        <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Explicit Mapping Trace</h4>
+                        <ul className="space-y-2">
+                          {demoResponseA?.mapping_trace.map((trace, i) => (
+                            <li key={i} className="flex items-center text-xs">
+                              <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-slate-600">{trace.source}</span>
+                              <span className="mx-2 text-slate-300">→</span>
+                              <span className="rounded bg-primary-50 px-1.5 py-0.5 font-mono text-primary-700">{trace.target}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="flex-1 overflow-auto bg-slate-900 p-5 text-sky-400">
+                        <pre className="text-xs font-mono">
+                          {JSON.stringify(demoResponseA?.normalized, null, 2)}
+                        </pre>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </section>
+
+            {/* SECTION B */}
+            <section className="border-t border-slate-200 pt-16">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4">SECTION B: Plan / Group Variation</h3>
+              <p className="text-sm text-slate-500 mb-6 max-w-3xl">
+                Notice how the <strong>exact same adapter</strong> mapping the <strong>exact same provider</strong> can yield entirely different member benefits, simply by loading different plan data.
+              </p>
+              
+              <div className="mb-6 flex flex-wrap gap-2">
+                {[
+                  { id: 'BASIC', label: 'Group 10001 / PPO Basic' },
+                  { id: 'PREMIUM', label: 'Group 20002 / PPO Premium' }
+                ].map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => loadDemoB(p.id)}
+                    className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                      demoPlanSubscriber === p.id 
+                        ? 'bg-primary-600 text-white shadow-sm' 
+                        : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="relative grid grid-cols-1 gap-6 lg:grid-cols-2">
+                {demoLoadingB && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/50 backdrop-blur-sm">
+                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-100 border-t-primary-600" />
+                  </div>
+                )}
+                
+                {demoResponseB && (
+                  <>
+                    <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                      <div className="border-b border-slate-100 bg-slate-50 px-5 py-3">
+                        <h3 className="text-sm font-semibold text-slate-900">Provider A API Payload</h3>
+                      </div>
+                      <div className="flex-1 overflow-auto bg-slate-900 p-5 text-emerald-400">
+                        <pre className="text-xs font-mono">
+                          {JSON.stringify(demoResponseB?.raw_response, null, 2)}
+                        </pre>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                      <div className="border-b border-slate-100 bg-slate-50 px-5 py-3 flex justify-between items-center">
+                        <h3 className="text-sm font-semibold text-slate-900">Canonical VerifyDent Schema</h3>
+                        <span className="rounded-full bg-primary-100 px-2.5 py-0.5 text-xs font-semibold text-primary-700">Same Adapter</span>
+                      </div>
+                      <div className="flex-1 overflow-auto bg-slate-900 p-5 text-sky-400">
+                        <pre className="text-xs font-mono">
+                          {JSON.stringify(demoResponseB?.normalized, null, 2)}
+                        </pre>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </section>
+          </div>
+          </details>
+        </div>
         )}
       </div>
     </Layout>

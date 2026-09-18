@@ -135,3 +135,10 @@ class TreatmentBenefit(TreatmentBenefitBase):
 class VerificationRequestPayload(BaseModel):
     patient: PatientCreate
     policy: InsurancePolicyBase
+
+class TreatmentAnalysis(BaseModel):
+    treatment: str
+    estimated_cost: Optional[Decimal] = None
+    estimated_insurance: Optional[Decimal] = None
+    patient_responsibility: Optional[Decimal] = None
+    missing_information_message: Optional[str] = None

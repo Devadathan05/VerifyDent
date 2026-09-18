@@ -107,3 +107,120 @@ export async function verifyInsurance(
 
   return (await res.json()) as InsuranceVerification
 }
+
+export interface MappingTraceItem {
+  provider: string | null
+  schema_version: string | null
+  source: string
+  target: string
+  mapping_type: string
+}
+
+export interface NormalizedBenefits {
+  // Provider metadata
+  provider_source: string | null
+  provider_environment: string | null
+  provider_schema_version: string | null
+  
+  // Payer/carrier
+  payer_id: string | null
+  payer_name: string | null
+  
+  // Group
+  group_number: string | null
+  group_name: string | null
+  employer_name: string | null
+  
+  // Plan
+  plan_id: string | null
+  plan_name: string | null
+  plan_type: string | null
+  effective_date: string | null
+  termination_date: string | null
+  
+  // Subscriber
+  subscriber_id: string | null
+  subscriber_name: string | null
+  subscriber_relationship: string | null
+  
+  // Member
+  member_id: string | null
+  member_name: string | null
+  date_of_birth: string | null
+  relationship_to_subscriber: string | null
+  
+  // Eligibility & Benefits
+  eligibility_status: string | null
+  annual_maximum: number | null
+  annual_maximum_remaining: number | null
+  deductible: number | null
+  deductible_remaining: number | null
+  preventive_coverage: number | null
+  basic_coverage: number | null
+  major_coverage: number | null
+  treatment_benefits: Array<{
+    treatment: string
+    covered: boolean
+    coverage_percentage: number | null
+    waiting_period: string | null
+    frequency: string | null
+  }>
+}
+
+export interface NormalizationDemoResponse {
+  provider: string
+  raw_response: Record<string, unknown>
+  normalized: NormalizedBenefits
+  mapping_trace: MappingTraceItem[]
+}
+
+export async function fetchNormalizationDemo(
+  providerName: string,
+  subscriberId?: string
+): Promise<NormalizationDemoResponse> {
+  const body: Record<string, string> = { provider_name: providerName }
+  if (subscriberId) {
+    body.subscriber_id = subscriberId
+  }
+  
+  const res = await fetch(`${BACKEND_URL}/api/normalization/demo`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+
+  if (!res.ok) {
+    const errorBody = (await res.json().catch(() => null)) as
+      | { detail?: string }
+      | null
+    throw new Error(errorBody?.detail ?? `Normalization demo failed with status ${res.status}`)
+  }
+
+  return (await res.json()) as NormalizationDemoResponse
+}
+
+export interface TreatmentAnalysis {
+  treatment: string
+  estimated_cost: string | null
+  estimated_insurance: string | null
+  patient_responsibility: string | null
+  missing_information_message: string | null
+}
+
+export async function fetchTreatmentAnalysis(
+  verificationId: string,
+  treatmentName: string,
+): Promise<TreatmentAnalysis> {
+  const res = await fetch(
+    `${BACKEND_URL}/api/verifications/${verificationId}/treatments/${encodeURIComponent(treatmentName)}/analysis`,
+  )
+
+  if (!res.ok) {
+    const errorBody = (await res.json().catch(() => null)) as
+      | { detail?: string }
+      | null
+    throw new Error(errorBody?.detail ?? `Treatment analysis failed with status ${res.status}`)
+  }
+
+  return (await res.json()) as TreatmentAnalysis
+}
