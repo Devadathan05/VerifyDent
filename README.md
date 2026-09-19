@@ -223,10 +223,10 @@ _This doubles as your live demo runbook (3–5 min)._
 
 | Name             | Role(s)                  | GitHub                                         |
 | ---------------- | ------------------------ | ---------------------------------------------- |
-| Devika Sajeesh   | Product and engineering  | —                                              |
-| Niyas S Makiyil  | Product and engineering  | [Niyasmkyl](https://github.com/Niyasmkyl)      |
-| Devadathan J     | Product and engineering  | [Devadathan05](https://github.com/Devadathan05)|
-| Ejo Abhilash     | Product and engineering  | —                                              |
+| Devika Sajeesh   | Backend  | —  [Devika-Sajeesh](https://github.com/Devika-Sajeesh)                                          |
+| Niyas S Makiyil  | Frontend  | [Niyasmkyl](https://github.com/Niyasmkyl)      |
+| Devadathan J     | Backend  | [Devadathan05](https://github.com/Devadathan05)|
+| Ejo Abhilash     | Frontend  | — [tve24ee064-max](https://github.com/tve24ee064-max)                                             |
 
 ---
 
