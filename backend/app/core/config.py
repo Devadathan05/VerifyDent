@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./verifydent.db"
 
     # Local dev: Vite dev server default origin. "http://localhost:5173" etc.
-    cors_origins: list[str] = ["http://localhost:5173"]
+    cors_origins: list[str] | str = ["http://localhost:5173"]
 
     # Document extraction (MVP).
     # "auto" -> Tesseract OCR if available, otherwise a safe unavailable response.
