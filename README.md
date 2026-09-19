@@ -10,7 +10,7 @@
 | **Team Name:**    | EvoKind                                                              |
 | **Team Members:** | Devika Sajeesh · Niyas S Makkiyil · Devadathan J · Ejo Abhilash       |
 | **Institution:**  | College of Engineering Trivandrum                                              |
-| **Live Demo:**    | [Demo link goes here]                                                |
+| **Live Demo:**    | https://drive.google.com/file/d/1NQ9npxgC5XjKGZvu9Y-PWc158-7MwH72/view?usp=drivesdk  |
 | **Pitch Video:**  | [Social media pitch video link]                                      |
 
 ---
