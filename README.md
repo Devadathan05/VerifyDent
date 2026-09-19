@@ -11,7 +11,7 @@
 | **Team Members:** | Devika Sajeesh · Niyas S Makkiyil · Devadathan J · Ejo Abhilash       |
 | **Institution:**  | College of Engineering Trivandrum                                              |
 | **Live Demo:**    | https://drive.google.com/file/d/1NQ9npxgC5XjKGZvu9Y-PWc158-7MwH72/view?usp=drivesdk  |
-| **Pitch Video:**  | [Social media pitch video link]                                      |
+| **Pitch Video:**  | https://lnkd.in/p/g75SNPQV                                      |
 
 ---
 
@@ -224,7 +224,7 @@ _This doubles as your live demo runbook (3–5 min)._
 | Name             | Role(s)                  | GitHub                                         |
 | ---------------- | ------------------------ | ---------------------------------------------- |
 | Devika Sajeesh   | Backend  | —  [Devika-Sajeesh](https://github.com/Devika-Sajeesh)                                          |
-| Niyas S Makiyil  | Frontend  | [Niyasmkyl](https://github.com/Niyasmkyl)      |
+| Niyas S Makkiyil  | Frontend  | [Niyasmkyl](https://github.com/Niyasmkyl)      |
 | Devadathan J     | Backend  | [Devadathan05](https://github.com/Devadathan05)|
 | Ejo Abhilash     | Frontend  | — [tve24ee064-max](https://github.com/tve24ee064-max)                                             |
 
