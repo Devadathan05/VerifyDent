@@ -34,10 +34,7 @@ export function Layout({ children }: LayoutProps) {
         </div>
         <nav className="flex flex-col gap-1 p-4">
           <SidebarLink label="Dashboard" active />
-          <SidebarLink label="Verifications" />
-          <SidebarLink label="Patients" />
-          <SidebarLink label="Carriers" />
-          <SidebarLink label="Settings" />
+
         </nav>
         <div className="mt-auto border-t border-slate-200 p-4">
           <div className="rounded-lg bg-slate-50 px-4 py-3">
